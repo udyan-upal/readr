@@ -47,6 +47,25 @@ body {
   z-index: 2;
 }
 
+/* Per-word "done" overlay — translucent white box fades the printed
+ * canvas text underneath to a light gray. Delay matches the slide
+ * highlight duration so the dim-in happens after the slide moves away. */
+.pdf-word {
+  position: absolute;
+  pointer-events: none;
+  background: transparent;
+  border-radius: 2px;
+  transition: background-color 200ms ease 180ms;
+}
+
+.pdf-word.done {
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+.dark .pdf-word.done {
+  background-color: rgba(10, 10, 10, 0.55);
+}
+
 /* Single highlight box that slides smoothly between word rects.
  * Animating left/top/width/height keeps the rect snug to each word,
  * which looks better than translating a fixed-size pill. */

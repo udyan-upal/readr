@@ -273,6 +273,17 @@ export default function PdfViewer({
             className="pdf-overlay"
             style={{ width: canvasSize.cssW, height: canvasSize.cssH }}
           >
+            {pageWords.map((w, i) => {
+              if (w.x == null || w.y == null || w.w == null || w.h == null) return null;
+              const done = currentWordIndex >= 0 && i < currentWordIndex;
+              return (
+                <span
+                  key={i}
+                  className={`pdf-word${done ? " done" : ""}`}
+                  style={{ left: w.x, top: w.y, width: w.w, height: w.h }}
+                />
+              );
+            })}
             <div
               ref={highlightRef}
               className={`pdf-highlight${highlightVisible ? " visible" : ""}`}
