@@ -51,10 +51,11 @@ export default function Home() {
   const tts = useTtsPlayer();
   const pendingAutoPageRef = useRef<number | null>(null);
   const handledEndedCountRef = useRef(0);
+  const handledGaplessCountRef = useRef(0);
   const prefetchKeyRef = useRef("");
   const prevPlaybackSettingsRef = useRef({ voice: DEFAULT_VOICE, rate: "+0%" });
 
-  // Session tracking refs — kept current so unload handlers never see stale values
+  // Session tracking refs — always current so unload handlers never see stale closures
   const currentPdfPathRef = useRef<string | null>(null);
   const currentPdfNameRef = useRef<string | null>(null);
   const lastWordIndexRef = useRef(0);
@@ -63,10 +64,9 @@ export default function Home() {
   const rateRef = useRef("+0%");
   const isSignedInRef = useRef(false);
   const prevIsPlayingRef = useRef(false);
-  // When resuming: { page, wordIndex } — consumed in handlePageReady to auto-start TTS
+  const prevEndedCountRef = useRef(0);
   const pendingResumeRef = useRef<{ page: number; wordIndex: number } | null>(null);
 
-  // Keep refs in sync with state
   useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
   useEffect(() => { voiceRef.current = voice; }, [voice]);
   useEffect(() => { rateRef.current = rate; }, [rate]);
@@ -84,24 +84,22 @@ export default function Home() {
     }).catch(() => {});
   }, []);
 
-  // sendBeacon survives tab close / refresh — works even as the page is unloading
   const beaconSession = useCallback(() => {
     const path = currentPdfPathRef.current;
     const name = currentPdfNameRef.current;
     if (!path || !name || !isSignedInRef.current) return;
-    const payload = JSON.stringify({
-      path,
-      name,
-      page: currentPageRef.current,
-      wordIndex: lastWordIndexRef.current,
-      voice: voiceRef.current,
-      rate: rateRef.current,
-    });
-    navigator.sendBeacon("/api/session", new Blob([payload], { type: "application/json" }));
+    navigator.sendBeacon(
+      "/api/session",
+      new Blob([JSON.stringify({
+        path, name,
+        page: currentPageRef.current,
+        wordIndex: lastWordIndexRef.current,
+        voice: voiceRef.current,
+        rate: rateRef.current,
+      })], { type: "application/json" }),
+    );
   }, []);
 
-  // Save on tab hidden (catches background tabs, mobile switches, pre-unload)
-  // Save on beforeunload (catches refresh + close when visibilitychange didn't fire)
   useEffect(() => {
     const onHide = () => { if (document.visibilityState === "hidden") beaconSession(); };
     const onUnload = () => beaconSession();
@@ -113,23 +111,23 @@ export default function Home() {
     };
   }, [beaconSession]);
 
-  // Save session when playback stops/pauses
+  // Save on user pause/stop only — not on automatic page-end transitions
   useEffect(() => {
     const wasPlaying = prevIsPlayingRef.current;
+    const endedJustNow = tts.endedCount !== prevEndedCountRef.current;
     prevIsPlayingRef.current = tts.isPlaying;
-    if (wasPlaying && !tts.isPlaying && isSignedIn) {
+    prevEndedCountRef.current = tts.endedCount;
+    if (wasPlaying && !tts.isPlaying && isSignedIn && !endedJustNow) {
       saveSession(currentPage, lastWordIndexRef.current, voice, rate);
     }
-  }, [tts.isPlaying, isSignedIn, currentPage, voice, rate, saveSession]);
+  }, [tts.isPlaying, tts.endedCount, isSignedIn, currentPage, voice, rate, saveSession]);
 
-  // Load voice list
   useEffect(() => {
     fetch("/api/voices")
       .then((r) => r.json())
       .then((d: { voices: Voice[] }) => {
-        if (Array.isArray(d.voices) && d.voices.length) {
+        if (Array.isArray(d.voices) && d.voices.length)
           setVoices(d.voices.filter((v) => v.locale.toLowerCase() === "en-us"));
-        }
       })
       .catch(() => {});
   }, []);
@@ -159,30 +157,23 @@ export default function Home() {
         [p.pageNumber]: mergeCachedPage(prev[p.pageNumber], p),
       }));
 
-      // Auto-play from a saved word index (resume flow)
+      // Resume: auto-start from the saved word index
       if (pendingResumeRef.current?.page === p.pageNumber && p.text.trim()) {
         const wordIndex = Math.max(0, Math.min(pendingResumeRef.current.wordIndex, p.words.length - 1));
         pendingResumeRef.current = null;
-        void tts.play({
-          text: p.words.slice(wordIndex).map((w) => w.text).join(" ").trim(),
-          voice,
-          rate,
-          words: p.words,
-          startWordIndex: wordIndex,
-        });
+        const text = p.words.slice(wordIndex).map((w) => w.text).join(" ").trim();
+        void tts.play({ text, voice, rate, words: p.words, startWordIndex: wordIndex });
         return;
       }
 
-      // Auto-play on continuous page advance
+      // Continuous page advance: auto-play full page
       if (pendingAutoPageRef.current === p.pageNumber && p.text.trim()) {
         pendingAutoPageRef.current = null;
         void tts.play({ text: p.text, voice, rate, words: p.words });
         return;
       }
 
-      if (tts.isPlaying) {
-        tts.updateWords(p.words);
-      }
+      if (tts.isPlaying) tts.updateWords(p.words);
     },
     [rate, tts, voice],
   );
@@ -194,9 +185,7 @@ export default function Home() {
     }));
   }, []);
 
-  const handleLoad = useCallback((n: number) => {
-    setNumPages(n);
-  }, []);
+  const handleLoad = useCallback((n: number) => setNumPages(n), []);
 
   const handlePageChange = useCallback(
     (n: number) => {
@@ -248,7 +237,6 @@ export default function Home() {
     [isSignedIn, resetReader, refreshSavedList],
   );
 
-  // Open saved PDF — just navigate, no auto-play
   const handleOpenSaved = useCallback(
     async (pdf: SavedPdf) => {
       try {
@@ -267,7 +255,6 @@ export default function Home() {
     [resetReader],
   );
 
-  // Resume saved PDF — open at saved page AND auto-start reading from saved word
   const handleResumeSaved = useCallback(
     async (pdf: SavedPdf) => {
       try {
@@ -278,10 +265,8 @@ export default function Home() {
         if (pdf.voice) setVoice(pdf.voice);
         if (pdf.rate) setRate(pdf.rate);
         const resumePage = pdf.lastPage ?? 1;
-        const resumeWord = pdf.wordIndex ?? 0;
         setInitialPage(resumePage);
-        // handlePageReady will consume this and auto-start TTS
-        pendingResumeRef.current = { page: resumePage, wordIndex: resumeWord };
+        pendingResumeRef.current = { page: resumePage, wordIndex: pdf.wordIndex ?? 0 };
         currentPdfPathRef.current = pdf.path;
         currentPdfNameRef.current = pdf.name;
         setFile(f);
@@ -309,7 +294,7 @@ export default function Home() {
     void tts.play({ text, voice, rate, words: pageData.words, startWordIndex });
   }, [pageData, rate, tts, voice]);
 
-  // Prefetch next page audio at 60% progress
+  // Prefetch next page at 60% progress
   useEffect(() => {
     if (!tts.isPlaying || tts.progress < 0.6) return;
     const nextPage = currentPage + 1;
@@ -322,16 +307,29 @@ export default function Home() {
     void tts.prefetch({ text: next.text, voice, rate, words: next.words });
   }, [currentPage, numPages, pageCache, rate, tts, voice]);
 
-  // Auto-advance to next page when audio ends
+  // Auto-advance to next page when audio ends.
+  // If gaplessEndedCount also incremented, the standby element already started playing —
+  // just update page state; do NOT call tts.play again or it will interrupt the audio.
   useEffect(() => {
     if (tts.endedCount === 0) return;
     if (tts.endedCount === handledEndedCountRef.current) return;
     handledEndedCountRef.current = tts.endedCount;
+
+    const wasGapless = tts.gaplessEndedCount > handledGaplessCountRef.current;
+    handledGaplessCountRef.current = tts.gaplessEndedCount;
+
     const nextPage = currentPage + 1;
     if (nextPage > numPages) return;
     const next = pageCache[nextPage];
     setCurrentPage(nextPage);
     setPageData(next ?? null);
+
+    if (wasGapless) {
+      // Audio already running via ping-pong swap — page state updated, nothing else to do.
+      pendingAutoPageRef.current = null;
+      return;
+    }
+
     if (next?.text.trim()) {
       pendingAutoPageRef.current = null;
       void tts.play({ text: next.text, voice, rate, words: next.words });
@@ -340,7 +338,6 @@ export default function Home() {
     pendingAutoPageRef.current = nextPage;
   }, [currentPage, numPages, pageCache, rate, tts, voice]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
@@ -386,9 +383,7 @@ export default function Home() {
   if (!file) {
     return (
       <main className="min-h-screen flex flex-col items-center p-6 pt-16">
-        <div className="absolute top-4 right-4">
-          <UserButton />
-        </div>
+        <div className="absolute top-4 right-4"><UserButton /></div>
         <h1 className="text-3xl font-bold mb-2">PDF Read Aloud</h1>
         <p className="text-gray-500 mb-8">Word-synced narration using Microsoft Edge neural voices</p>
         <PdfUploader onFile={handleFile} />
@@ -403,19 +398,10 @@ export default function Home() {
           )}
           <ul className="space-y-2">
             {savedPdfs.map((pdf) => (
-              <li
-                key={pdf.path}
-                className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700"
-              >
-                <button
-                  type="button"
-                  onClick={() => void handleOpenSaved(pdf)}
-                  className="flex-1 text-left min-w-0"
-                >
+              <li key={pdf.path} className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                <button type="button" onClick={() => void handleOpenSaved(pdf)} className="flex-1 text-left min-w-0">
                   <span className="block truncate text-sm font-medium">{pdf.name}</span>
-                  {pdf.lastPage && (
-                    <span className="text-xs text-gray-400">Last read: p.{pdf.lastPage}</span>
-                  )}
+                  {pdf.lastPage && <span className="text-xs text-gray-400">Last read: p.{pdf.lastPage}</span>}
                 </button>
                 {pdf.lastPage != null && (
                   <button
@@ -449,7 +435,6 @@ export default function Home() {
               onClick={() => setOutlineOpen((o) => !o)}
               className="text-sm px-2 py-1 rounded bg-gray-100 dark:bg-gray-800"
               aria-label="Toggle contents"
-              title="Toggle contents"
             >
               ☰
             </button>
@@ -462,10 +447,7 @@ export default function Home() {
           {uploadStatus === "error" && <span className="text-xs text-red-500">Save failed</span>}
           <button
             type="button"
-            onClick={() => {
-              resetReader();
-              setFile(null);
-            }}
+            onClick={() => { resetReader(); setFile(null); }}
             className="text-sm px-3 py-1 rounded bg-gray-100 dark:bg-gray-800"
           >
             New PDF
