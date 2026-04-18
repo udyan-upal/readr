@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PdfUploader from "@/components/PdfUploader";
 import PdfViewer from "@/components/PdfViewer";
-import TextPanel from "@/components/TextPanel";
 import PlayerControls from "@/components/PlayerControls";
 import { useTtsPlayer } from "@/hooks/useTtsPlayer";
 import { DEFAULT_VOICE, VOICES } from "@/lib/voices";
@@ -20,7 +19,6 @@ export default function Home() {
   const tts = useTtsPlayer();
 
   useEffect(() => {
-    // Keep bundled list as default; refresh from API if it differs.
     fetch("/api/voices")
       .then((r) => r.json())
       .then((d: { voices: Voice[] }) => {
@@ -33,9 +31,6 @@ export default function Home() {
     () => pages.find((p) => p.pageNumber === currentPage),
     [pages, currentPage],
   );
-
-  const displayWords =
-    tts.alignedWords.length && tts.isPlaying ? tts.alignedWords : pageText?.words ?? [];
 
   const handleTextExtracted = useCallback((p: PageText[]) => {
     setPages(p);
@@ -69,11 +64,11 @@ export default function Home() {
     });
   }, [pageText, voice, rate, tts]);
 
-  // Keyboard shortcuts: Space = play/pause, arrows = page nav.
+  // Keyboard: Space play/pause, arrows paginate.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA")) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA")) return;
       if (e.code === "Space") {
         e.preventDefault();
         if (tts.isPlaying) tts.pause();
@@ -101,7 +96,10 @@ export default function Home() {
     );
   }
 
-  const hasText = pageText && pageText.words.length > 0;
+  const noTextMessage =
+    pages.length > 0 && pageText && pageText.words.length === 0
+      ? "No text on this page (scanned/image PDFs are not supported — no OCR)."
+      : null;
 
   return (
     <main className="h-screen flex flex-col">
@@ -119,26 +117,15 @@ export default function Home() {
           New PDF
         </button>
       </header>
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 min-h-0">
-        <div className="border-r border-gray-200 dark:border-gray-800 min-h-0 flex flex-col">
-          <PdfViewer
-            file={file}
-            currentPage={currentPage}
-            onPageChange={setCurrentPage}
-            onTextExtracted={handleTextExtracted}
-          />
-        </div>
-        <div className="overflow-auto min-h-0">
-          <TextPanel
-            words={displayWords}
-            currentWordIndex={tts.currentWordIndex}
-            emptyMessage={
-              pages.length && !hasText
-                ? "No text found on this page. Scanned/image PDFs are not supported (no OCR)."
-                : undefined
-            }
-          />
-        </div>
+      <div className="flex-1 min-h-0">
+        <PdfViewer
+          file={file}
+          currentPage={currentPage}
+          onPageChange={setCurrentPage}
+          onTextExtracted={handleTextExtracted}
+          currentWordIndex={tts.currentWordIndex}
+          noTextMessage={noTextMessage}
+        />
       </div>
       <PlayerControls
         voices={voices}

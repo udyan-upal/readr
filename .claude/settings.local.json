@@ -6,7 +6,8 @@
       "Bash(curl -s --max-time 45 -X POST http://localhost:3002/api/tts -H 'Content-Type: application/json' -d '{\"text\":\"Hello world, this is a test.\",\"voice\":\"en-US-AriaNeural\",\"rate\":\"+0%\"}' -o /tmp/tts.json)",
       "Bash(python3 -c \"import json; d=json.load\\(open\\('/tmp/tts.json'\\)\\); print\\('audio_b64_len:', len\\(d.get\\('audio',''\\)\\), 'boundaries:', len\\(d.get\\('boundaries',[]\\)\\), 'first3:', d.get\\('boundaries',[]\\)[:3], 'err:', d.get\\('error'\\)\\)\")",
       "Bash(time curl *)",
-      "Bash(python3 -c \"import json; d=json.load\\(open\\('/tmp/tts.json'\\)\\); print\\('audio_b64_len:', len\\(d.get\\('audio',''\\)\\), 'boundaries:', len\\(d.get\\('boundaries',[]\\)\\), 'first:', d.get\\('boundaries',[]\\)[:3], 'err:', d.get\\('error'\\)\\)\")"
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('/tmp/tts.json'\\)\\); print\\('audio_b64_len:', len\\(d.get\\('audio',''\\)\\), 'boundaries:', len\\(d.get\\('boundaries',[]\\)\\), 'first:', d.get\\('boundaries',[]\\)[:3], 'err:', d.get\\('error'\\)\\)\")",
+      "Bash(npx tsc *)"
     ]
   }
 }

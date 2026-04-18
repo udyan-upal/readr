@@ -3,6 +3,11 @@ export interface Word {
   index: number;
   offsetMs?: number;
   durationMs?: number;
+  // CSS-space canvas coords (optional — absent for scanned/no-position items).
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
 }
 
 export interface WordBoundary {
@@ -20,7 +25,7 @@ export interface PageText {
 export interface Voice {
   shortName: string;
   friendlyName: string;
-  gender: "Male" | "Female";
+  gender: string; // "Male" | "Female" | "Neutral" — widened for upstream variants
   locale: string;
 }
 

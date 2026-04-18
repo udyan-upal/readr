@@ -10,3 +10,39 @@ body {
 body {
   @apply bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100;
 }
+
+/* Word-highlight overlay sits on top of the rendered PDF canvas.
+ * Each .pdf-word is positioned absolutely in CSS pixels matching the
+ * canvas's logical size; mix-blend-multiply keeps the underlying PDF
+ * text legible through the highlight. */
+.pdf-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+
+.pdf-word {
+  position: absolute;
+  border-radius: 2px;
+  transition: background-color 80ms linear;
+  mix-blend-mode: multiply;
+}
+
+.pdf-word.active {
+  background: rgba(250, 204, 21, 0.55);
+  box-shadow: 0 0 0 1px rgba(202, 138, 4, 0.4);
+}
+
+.pdf-word.done {
+  /* subtle trail — comment out to disable */
+  background: rgba(200, 200, 200, 0.08);
+}
+
+.dark .pdf-word {
+  mix-blend-mode: screen;
+}
+
+.dark .pdf-word.active {
+  background: rgba(234, 179, 8, 0.45);
+}

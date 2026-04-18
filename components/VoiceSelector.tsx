@@ -30,7 +30,7 @@ export default function VoiceSelector({ voices, value, onChange }: Props) {
         <optgroup key={locale} label={locale}>
           {list.map((v) => (
             <option key={v.shortName} value={v.shortName}>
-              {v.friendlyName} ({v.gender === "Female" ? "F" : "M"})
+              {v.friendlyName} ({v.gender.charAt(0) || "?"})
             </option>
           ))}
         </optgroup>
