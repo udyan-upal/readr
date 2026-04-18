@@ -3,16 +3,19 @@
 import { useCallback, useEffect, useState } from "react";
 import PdfUploader from "@/components/PdfUploader";
 import PdfViewer from "@/components/PdfViewer";
+import PdfOutline from "@/components/PdfOutline";
 import PlayerControls from "@/components/PlayerControls";
 import { useTtsPlayer } from "@/hooks/useTtsPlayer";
 import { DEFAULT_VOICE, VOICES } from "@/lib/voices";
-import type { PageText, Voice } from "@/types";
+import type { OutlineItem, PageText, Voice } from "@/types";
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [pageData, setPageData] = useState<PageText | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [outline, setOutline] = useState<OutlineItem[]>([]);
+  const [outlineOpen, setOutlineOpen] = useState(true);
   const [voice, setVoice] = useState(DEFAULT_VOICE);
   const [rate, setRate] = useState("+0%");
   const [voices, setVoices] = useState<Voice[]>(VOICES);
@@ -51,6 +54,7 @@ export default function Home() {
       setPageData(null);
       setNumPages(0);
       setCurrentPage(1);
+      setOutline([]);
       setFile(f);
     },
     [tts],
@@ -105,7 +109,20 @@ export default function Home() {
   return (
     <main className="h-screen flex flex-col">
       <header className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 px-4 py-2">
-        <div className="font-semibold">PDF Read Aloud</div>
+        <div className="flex items-center gap-3">
+          {outline.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setOutlineOpen((o) => !o)}
+              className="text-sm px-2 py-1 rounded bg-gray-100 dark:bg-gray-800"
+              aria-label="Toggle contents"
+              title="Toggle contents"
+            >
+              ☰
+            </button>
+          )}
+          <div className="font-semibold">PDF Read Aloud</div>
+        </div>
         <button
           type="button"
           onClick={() => {
@@ -113,22 +130,33 @@ export default function Home() {
             setFile(null);
             setPageData(null);
             setNumPages(0);
+            setOutline([]);
           }}
           className="text-sm px-3 py-1 rounded bg-gray-100 dark:bg-gray-800"
         >
           New PDF
         </button>
       </header>
-      <div className="flex-1 min-h-0">
-        <PdfViewer
-          file={file}
-          currentPage={currentPage}
-          onPageChange={setCurrentPage}
-          onPageReady={handlePageReady}
-          onLoad={handleLoad}
-          currentWordIndex={tts.currentWordIndex}
-          noTextMessage={noTextMessage}
-        />
+      <div className="flex-1 min-h-0 flex">
+        {outlineOpen && outline.length > 0 && (
+          <PdfOutline
+            items={outline}
+            currentPage={currentPage}
+            onNavigate={handlePageChange}
+          />
+        )}
+        <div className="flex-1 min-w-0">
+          <PdfViewer
+            file={file}
+            currentPage={currentPage}
+            onPageChange={setCurrentPage}
+            onPageReady={handlePageReady}
+            onLoad={handleLoad}
+            onOutline={setOutline}
+            currentWordIndex={tts.currentWordIndex}
+            noTextMessage={noTextMessage}
+          />
+        </div>
       </div>
       <PlayerControls
         voices={voices}

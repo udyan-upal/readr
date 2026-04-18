@@ -33,3 +33,9 @@ export interface TtsResponse {
   audio: string;
   boundaries: WordBoundary[];
 }
+
+export interface OutlineItem {
+  title: string;
+  pageNumber?: number;
+  items: OutlineItem[];
+}

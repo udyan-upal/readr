@@ -1,7 +1,43 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { PageText, Word } from "@/types";
+import type { OutlineItem, PageText, Word } from "@/types";
+
+// pdf.js outline node shape (narrow subset we need).
+interface RawOutlineItem {
+  title: string;
+  dest: string | unknown[] | null;
+  items: RawOutlineItem[];
+}
+
+interface PdfDocLike {
+  getDestination: (name: string) => Promise<unknown[] | null>;
+  getPageIndex: (ref: unknown) => Promise<number>;
+}
+
+async function resolveOutline(
+  doc: unknown,
+  items: RawOutlineItem[],
+): Promise<OutlineItem[]> {
+  const d = doc as PdfDocLike;
+  const out: OutlineItem[] = [];
+  for (const it of items) {
+    let pageNumber: number | undefined;
+    try {
+      let dest = it.dest as string | unknown[] | null;
+      if (typeof dest === "string") dest = await d.getDestination(dest);
+      if (Array.isArray(dest) && dest.length > 0) {
+        const idx = await d.getPageIndex(dest[0]);
+        pageNumber = idx + 1;
+      }
+    } catch {
+      // Unresolvable destination — leave pageNumber undefined.
+    }
+    const children = it.items?.length ? await resolveOutline(doc, it.items) : [];
+    out.push({ title: it.title, pageNumber, items: children });
+  }
+  return out;
+}
 
 interface Props {
   file: File | null;
@@ -9,6 +45,7 @@ interface Props {
   onPageChange: (page: number) => void;
   onPageReady: (page: PageText) => void;
   onLoad: (numPages: number) => void;
+  onOutline?: (items: OutlineItem[]) => void;
   currentWordIndex: number;
   noTextMessage?: string | null;
 }
@@ -25,6 +62,7 @@ export default function PdfViewer({
   onPageChange,
   onPageReady,
   onLoad,
+  onOutline,
   currentWordIndex,
   noTextMessage,
 }: Props) {
@@ -64,6 +102,24 @@ export default function PdfViewer({
       onLoad(doc.numPages);
       setLoading(false);
       onPageChange(1);
+
+      // Resolve PDF outline (bookmarks) → page numbers.
+      if (onOutline) {
+        try {
+          const raw = await (
+            doc as unknown as {
+              getOutline: () => Promise<RawOutlineItem[] | null>;
+            }
+          ).getOutline();
+          if (!cancelled) {
+            const resolved = raw ? await resolveOutline(doc, raw) : [];
+            onOutline(resolved);
+          }
+        } catch (err) {
+          console.warn("[PdfViewer] outline fetch failed", err);
+          onOutline([]);
+        }
+      }
     })().catch((err) => {
       console.error("[PdfViewer] load error", err);
       setLoading(false);
