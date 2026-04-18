@@ -217,6 +217,8 @@ export default function Home() {
       resetReader();
       currentPdfPathRef.current = null;
       currentPdfNameRef.current = f.name;
+      const slug = encodeURIComponent(f.name.replace(/\.pdf$/i, ""));
+      window.history.replaceState(null, "", `/read/${slug}`);
       setFile(f);
 
       if (isSignedIn) {
@@ -249,6 +251,8 @@ export default function Home() {
         setInitialPage(pdf.lastPage ?? 1);
         currentPdfPathRef.current = pdf.path;
         currentPdfNameRef.current = pdf.name;
+        const slug = encodeURIComponent(pdf.name.replace(/\.pdf$/i, ""));
+        window.history.replaceState(null, "", `/read/${slug}`);
         setFile(f);
       } catch { /* ignore */ }
     },
@@ -269,6 +273,8 @@ export default function Home() {
         pendingResumeRef.current = { page: resumePage, wordIndex: pdf.wordIndex ?? 0 };
         currentPdfPathRef.current = pdf.path;
         currentPdfNameRef.current = pdf.name;
+        const slug = encodeURIComponent(pdf.name.replace(/\.pdf$/i, ""));
+        window.history.replaceState(null, "", `/read/${slug}`);
         setFile(f);
       } catch { /* ignore */ }
     },
@@ -447,7 +453,7 @@ export default function Home() {
           {uploadStatus === "error" && <span className="text-xs text-red-500">Save failed</span>}
           <button
             type="button"
-            onClick={() => { resetReader(); setFile(null); }}
+            onClick={() => { resetReader(); setFile(null); window.history.replaceState(null, "", "/"); }}
             className="text-sm px-3 py-1 rounded bg-gray-100 dark:bg-gray-800"
           >
             New PDF
