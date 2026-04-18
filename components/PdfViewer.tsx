@@ -28,7 +28,7 @@ export default function PdfViewer({
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const highlightRef = useRef<HTMLDivElement>(null);
 
   const [numPages, setNumPages] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -190,16 +190,23 @@ export default function PdfViewer({
     };
   }, [currentPage]);
 
-  // Auto-scroll the container to keep active word in view.
+  // Auto-scroll using the highlight element as anchor.
   useEffect(() => {
     if (currentWordIndex < 0) return;
     if (currentWordIndex === lastScrolledRef.current) return;
-    const el = wordRefs.current[currentWordIndex];
+    const el = highlightRef.current;
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       lastScrolledRef.current = currentWordIndex;
     }
   }, [currentWordIndex]);
+
+  const activeWord =
+    currentWordIndex >= 0 && currentWordIndex < pageWords.length
+      ? pageWords[currentWordIndex]
+      : null;
+  const highlightVisible =
+    !!activeWord && activeWord.x != null && activeWord.y != null && activeWord.w != null && activeWord.h != null;
 
   return (
     <div className="flex flex-col h-full">
@@ -251,26 +258,20 @@ export default function PdfViewer({
             className="pdf-overlay"
             style={{ width: canvasSize.cssW, height: canvasSize.cssH }}
           >
-            {pageWords.map((w, i) => {
-              if (w.x == null || w.y == null || w.w == null || w.h == null) return null;
-              const active = i === currentWordIndex;
-              const done = i < currentWordIndex;
-              return (
-                <span
-                  key={i}
-                  ref={(el) => {
-                    wordRefs.current[i] = el;
-                  }}
-                  className={`pdf-word${active ? " active" : ""}${done ? " done" : ""}`}
-                  style={{
-                    left: w.x,
-                    top: w.y,
-                    width: w.w,
-                    height: w.h,
-                  }}
-                />
-              );
-            })}
+            <div
+              ref={highlightRef}
+              className={`pdf-highlight${highlightVisible ? " visible" : ""}`}
+              style={
+                highlightVisible && activeWord
+                  ? {
+                      left: activeWord.x,
+                      top: activeWord.y,
+                      width: activeWord.w,
+                      height: activeWord.h,
+                    }
+                  : undefined
+              }
+            />
           </div>
           {!loading && pageWords.length === 0 && noTextMessage && (
             <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-gray-500 bg-white/70 dark:bg-black/50">

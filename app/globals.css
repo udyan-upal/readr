@@ -22,27 +22,35 @@ body {
   pointer-events: none;
 }
 
-.pdf-word {
+/* Single highlight box that slides smoothly between word rects.
+ * Animating left/top/width/height keeps the rect snug to each word,
+ * which looks better than translating a fixed-size pill. */
+.pdf-highlight {
   position: absolute;
-  border-radius: 2px;
-  transition: background-color 80ms linear;
-  mix-blend-mode: multiply;
-}
-
-.pdf-word.active {
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  border-radius: 3px;
   background: rgba(250, 204, 21, 0.55);
   box-shadow: 0 0 0 1px rgba(202, 138, 4, 0.4);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    left 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    top 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    width 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    height 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 120ms linear;
+  will-change: left, top, width, height;
 }
 
-.pdf-word.done {
-  /* subtle trail — comment out to disable */
-  background: rgba(200, 200, 200, 0.08);
+.pdf-highlight.visible {
+  opacity: 1;
 }
 
-.dark .pdf-word {
+.dark .pdf-highlight {
   mix-blend-mode: screen;
-}
-
-.dark .pdf-word.active {
   background: rgba(234, 179, 8, 0.45);
 }
