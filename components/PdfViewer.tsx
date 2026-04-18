@@ -42,6 +42,7 @@ async function resolveOutline(
 interface Props {
   file: File | null;
   currentPage: number;
+  initialPage?: number;
   onPageChange: (page: number) => void;
   onPageReady: (page: PageText) => void;
   onPrefetchPageReady?: (page: PageText) => void;
@@ -60,6 +61,7 @@ interface CanvasSize {
 export default function PdfViewer({
   file,
   currentPage,
+  initialPage,
   onPageChange,
   onPageReady,
   onPrefetchPageReady,
@@ -106,7 +108,10 @@ export default function PdfViewer({
       setNumPages(doc.numPages);
       onLoad(doc.numPages);
       setLoading(false);
-      onPageChange(1);
+      const startPage = initialPage && initialPage > 1
+        ? Math.min(initialPage, doc.numPages)
+        : 1;
+      onPageChange(startPage);
 
       // Resolve PDF outline (bookmarks) → page numbers.
       if (onOutline) {
