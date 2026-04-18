@@ -35,6 +35,7 @@ export default function Home() {
   const pendingAutoPageRef = useRef<number | null>(null);
   const handledEndedCountRef = useRef(0);
   const prefetchKeyRef = useRef("");
+  const prevPlaybackSettingsRef = useRef({ voice: DEFAULT_VOICE, rate: "+0%" });
 
   useEffect(() => {
     fetch("/api/voices")
@@ -117,6 +118,29 @@ export default function Home() {
       words: pageData.words,
     });
   }, [pageData, voice, rate, tts]);
+
+  useEffect(() => {
+    const prev = prevPlaybackSettingsRef.current;
+    const changed = prev.voice !== voice || prev.rate !== rate;
+    prevPlaybackSettingsRef.current = { voice, rate };
+    if (!changed) return;
+
+    prefetchKeyRef.current = "";
+    if (!tts.isPlaying || !pageData || !pageData.words.length) return;
+
+    const startWordIndex = Math.max(0, Math.min(tts.currentWordIndex, pageData.words.length - 1));
+    const remainingWords = pageData.words.slice(startWordIndex);
+    const text = remainingWords.map((w) => w.text).join(" ").trim();
+    if (!text) return;
+
+    void tts.play({
+      text,
+      voice,
+      rate,
+      words: pageData.words,
+      startWordIndex,
+    });
+  }, [pageData, rate, tts, voice]);
 
   useEffect(() => {
     if (!tts.isPlaying || tts.progress < 0.6) return;

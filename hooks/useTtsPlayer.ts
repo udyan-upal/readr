@@ -9,6 +9,7 @@ interface PlayOptions {
   voice: string;
   rate: string;
   words: Word[];
+  startWordIndex?: number;
 }
 
 interface FetchedClip {
@@ -28,7 +29,7 @@ interface State {
 
 // Cheap cache key — voice + rate + length + text edges uniquely identify a page's clip.
 function keyOf(o: PlayOptions): string {
-  return `${o.voice}|${o.rate}|${o.text.length}|${o.text.slice(0, 64)}|${o.text.slice(-64)}`;
+  return `${o.voice}|${o.rate}|${o.startWordIndex ?? 0}|${o.text.length}|${o.text.slice(0, 64)}|${o.text.slice(-64)}`;
 }
 
 async function fetchClip(opts: PlayOptions): Promise<FetchedClip> {
@@ -103,6 +104,7 @@ export function useTtsPlayer() {
 
   const startWithClip = useCallback(
     async (opts: PlayOptions, clip: FetchedClip) => {
+      const startWordIndex = Math.max(0, Math.min(opts.startWordIndex ?? 0, Math.max(0, opts.words.length - 1)));
       const a = getAudio();
       a.pause();
       cleanupUrl();
@@ -112,7 +114,10 @@ export function useTtsPlayer() {
       a.src = url;
 
       boundariesRef.current = clip.boundaries;
-      const aligned = alignBoundaries(opts.words, clip.boundaries);
+      const leadingWords = opts.words.slice(0, startWordIndex).map((w) => ({ ...w }));
+      const targetWords = opts.words.slice(startWordIndex);
+      const alignedTail = alignBoundaries(targetWords, clip.boundaries);
+      const aligned = leadingWords.length ? [...leadingWords, ...alignedTail] : alignedTail;
       wordsRef.current = aligned;
 
       setState((s) => ({
