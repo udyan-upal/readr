@@ -1,17 +1,28 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import PdfUploader from "@/components/PdfUploader";
 import PdfViewer from "@/components/PdfViewer";
 import PdfOutline from "@/components/PdfOutline";
 import PlayerControls from "@/components/PlayerControls";
 import { useTtsPlayer } from "@/hooks/useTtsPlayer";
 import { DEFAULT_VOICE, VOICES } from "@/lib/voices";
-import type { OutlineItem, PageText, Voice } from "@/types";
+import type { OutlineItem, PageText, Voice, Word } from "@/types";
+
+function hasWordPositions(words: Word[]): boolean {
+  return words.some((w) => w.x != null && w.y != null && w.w != null && w.h != null);
+}
+
+function mergeCachedPage(existing: PageText | undefined, incoming: PageText): PageText {
+  if (!existing) return incoming;
+  if (hasWordPositions(existing.words) && !hasWordPositions(incoming.words)) return existing;
+  return incoming;
+}
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [pageData, setPageData] = useState<PageText | null>(null);
+  const [pageCache, setPageCache] = useState<Record<number, PageText>>({});
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [outline, setOutline] = useState<OutlineItem[]>([]);
@@ -21,6 +32,9 @@ export default function Home() {
   const [voices, setVoices] = useState<Voice[]>(VOICES);
 
   const tts = useTtsPlayer();
+  const pendingAutoPageRef = useRef<number | null>(null);
+  const handledEndedCountRef = useRef(0);
+  const prefetchKeyRef = useRef("");
 
   useEffect(() => {
     fetch("/api/voices")
@@ -31,8 +45,37 @@ export default function Home() {
       .catch(() => {});
   }, []);
 
-  const handlePageReady = useCallback((p: PageText) => {
-    setPageData(p);
+  const handlePageReady = useCallback(
+    (p: PageText) => {
+      setPageData(p);
+      setPageCache((prev) => ({
+        ...prev,
+        [p.pageNumber]: mergeCachedPage(prev[p.pageNumber], p),
+      }));
+
+      if (pendingAutoPageRef.current === p.pageNumber && p.text.trim()) {
+        pendingAutoPageRef.current = null;
+        void tts.play({
+          text: p.text,
+          voice,
+          rate,
+          words: p.words,
+        });
+        return;
+      }
+
+      if (tts.isPlaying) {
+        tts.updateWords(p.words);
+      }
+    },
+    [rate, tts, voice],
+  );
+
+  const handlePrefetchPageReady = useCallback((p: PageText) => {
+    setPageCache((prev) => ({
+      ...prev,
+      [p.pageNumber]: mergeCachedPage(prev[p.pageNumber], p),
+    }));
   }, []);
 
   const handleLoad = useCallback((n: number) => {
@@ -41,17 +84,22 @@ export default function Home() {
 
   const handlePageChange = useCallback(
     (n: number) => {
+      pendingAutoPageRef.current = null;
       tts.stop();
-      setPageData(null);
+      setPageData(pageCache[n] ?? null);
       setCurrentPage(n);
     },
-    [tts],
+    [pageCache, tts],
   );
 
   const handleFile = useCallback(
     (f: File) => {
+      pendingAutoPageRef.current = null;
+      prefetchKeyRef.current = "";
+      handledEndedCountRef.current = 0;
       tts.stop();
       setPageData(null);
+      setPageCache({});
       setNumPages(0);
       setCurrentPage(1);
       setOutline([]);
@@ -69,6 +117,52 @@ export default function Home() {
       words: pageData.words,
     });
   }, [pageData, voice, rate, tts]);
+
+  useEffect(() => {
+    if (!tts.isPlaying || tts.progress < 0.6) return;
+    const nextPage = currentPage + 1;
+    if (nextPage > numPages) return;
+
+    const next = pageCache[nextPage];
+    if (!next || !next.text.trim()) return;
+
+    const k = `${nextPage}|${voice}|${rate}|${next.text.length}|${next.text.slice(0, 32)}|${next.text.slice(-32)}`;
+    if (prefetchKeyRef.current === k) return;
+    prefetchKeyRef.current = k;
+
+    void tts.prefetch({
+      text: next.text,
+      voice,
+      rate,
+      words: next.words,
+    });
+  }, [currentPage, numPages, pageCache, rate, tts, voice]);
+
+  useEffect(() => {
+    if (tts.endedCount === 0) return;
+    if (tts.endedCount === handledEndedCountRef.current) return;
+    handledEndedCountRef.current = tts.endedCount;
+
+    const nextPage = currentPage + 1;
+    if (nextPage > numPages) return;
+
+    const next = pageCache[nextPage];
+    setCurrentPage(nextPage);
+    setPageData(next ?? null);
+
+    if (next?.text.trim()) {
+      pendingAutoPageRef.current = null;
+      void tts.play({
+        text: next.text,
+        voice,
+        rate,
+        words: next.words,
+      });
+      return;
+    }
+
+    pendingAutoPageRef.current = nextPage;
+  }, [currentPage, numPages, pageCache, rate, tts, voice]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -126,9 +220,13 @@ export default function Home() {
         <button
           type="button"
           onClick={() => {
+            pendingAutoPageRef.current = null;
+            prefetchKeyRef.current = "";
+            handledEndedCountRef.current = 0;
             tts.stop();
             setFile(null);
             setPageData(null);
+            setPageCache({});
             setNumPages(0);
             setOutline([]);
           }}
@@ -149,8 +247,9 @@ export default function Home() {
           <PdfViewer
             file={file}
             currentPage={currentPage}
-            onPageChange={setCurrentPage}
+            onPageChange={handlePageChange}
             onPageReady={handlePageReady}
+            onPrefetchPageReady={handlePrefetchPageReady}
             onLoad={handleLoad}
             onOutline={setOutline}
             currentWordIndex={tts.currentWordIndex}

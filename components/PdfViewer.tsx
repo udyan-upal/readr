@@ -44,6 +44,7 @@ interface Props {
   currentPage: number;
   onPageChange: (page: number) => void;
   onPageReady: (page: PageText) => void;
+  onPrefetchPageReady?: (page: PageText) => void;
   onLoad: (numPages: number) => void;
   onOutline?: (items: OutlineItem[]) => void;
   currentWordIndex: number;
@@ -61,6 +62,7 @@ export default function PdfViewer({
   currentPage,
   onPageChange,
   onPageReady,
+  onPrefetchPageReady,
   onLoad,
   onOutline,
   currentWordIndex,
@@ -78,6 +80,8 @@ export default function PdfViewer({
   const pdfRef = useRef<unknown>(null);
   const lastScrolledRef = useRef(-1);
   const renderTokenRef = useRef(0);
+  const prefetchedPagesRef = useRef<Set<number>>(new Set());
+  const prefetchTokenRef = useRef(0);
 
   // Load PDF.
   useEffect(() => {
@@ -85,6 +89,7 @@ export default function PdfViewer({
       pdfRef.current = null;
       setNumPages(0);
       setPageWords([]);
+      prefetchedPagesRef.current.clear();
       return;
     }
     let cancelled = false;
@@ -130,6 +135,58 @@ export default function PdfViewer({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file]);
+
+  useEffect(() => {
+    const doc = pdfRef.current as {
+      getPage: (n: number) => Promise<unknown>;
+    } | null;
+    if (!doc || !onPrefetchPageReady) return;
+
+    const nextPage = currentPage + 1;
+    if (nextPage > numPages) return;
+    if (prefetchedPagesRef.current.has(nextPage)) return;
+
+    const myToken = ++prefetchTokenRef.current;
+    let cancelled = false;
+
+    (async () => {
+      const page = (await doc.getPage(nextPage)) as {
+        getTextContent: () => Promise<unknown>;
+      };
+      if (cancelled || prefetchTokenRef.current !== myToken) return;
+
+      const textContent = (await page.getTextContent()) as {
+        items?: Array<{ str?: string }>;
+      };
+      if (cancelled || prefetchTokenRef.current !== myToken) return;
+
+      const words: Word[] = [];
+      const tokens: string[] = [];
+      const items = Array.isArray(textContent.items) ? textContent.items : [];
+      for (const it of items) {
+        const s = it?.str ?? "";
+        if (!s.trim()) continue;
+        for (const token of s.split(/\s+/g)) {
+          if (!token) continue;
+          words.push({ text: token, index: words.length });
+          tokens.push(token);
+        }
+      }
+
+      prefetchedPagesRef.current.add(nextPage);
+      onPrefetchPageReady({
+        pageNumber: nextPage,
+        text: tokens.join(" "),
+        words,
+      });
+    })().catch((err) => {
+      console.warn("[PdfViewer] prefetch error", err);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentPage, numPages, onPrefetchPageReady]);
 
   // Render current page: canvas + TextLayer, then measure per-word rects.
   useEffect(() => {
