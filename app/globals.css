@@ -11,6 +11,30 @@ body {
   @apply bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100;
 }
 
+/* pdf.js text layer — positioned spans matching the rendered text.
+ * Kept transparent so we don't double-draw over the canvas; used only
+ * as a DOM source for accurate per-word rect measurement via Range. */
+.pdf-textlayer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: hidden;
+  opacity: 1;
+  line-height: 1;
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: none;
+  transform-origin: 0 0;
+  z-index: 1;
+}
+
+.pdf-textlayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  transform-origin: 0% 0%;
+}
+
 /* Word-highlight overlay sits on top of the rendered PDF canvas.
  * Each .pdf-word is positioned absolutely in CSS pixels matching the
  * canvas's logical size; mix-blend-multiply keeps the underlying PDF
@@ -20,6 +44,7 @@ body {
   left: 0;
   top: 0;
   pointer-events: none;
+  z-index: 2;
 }
 
 /* Single highlight box that slides smoothly between word rects.

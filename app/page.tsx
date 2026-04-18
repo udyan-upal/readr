@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import PdfUploader from "@/components/PdfUploader";
 import PdfViewer from "@/components/PdfViewer";
 import PlayerControls from "@/components/PlayerControls";
@@ -10,7 +10,8 @@ import type { PageText, Voice } from "@/types";
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
-  const [pages, setPages] = useState<PageText[]>([]);
+  const [pageData, setPageData] = useState<PageText | null>(null);
+  const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [voice, setVoice] = useState(DEFAULT_VOICE);
   const [rate, setRate] = useState("+0%");
@@ -27,18 +28,18 @@ export default function Home() {
       .catch(() => {});
   }, []);
 
-  const pageText = useMemo(
-    () => pages.find((p) => p.pageNumber === currentPage),
-    [pages, currentPage],
-  );
+  const handlePageReady = useCallback((p: PageText) => {
+    setPageData(p);
+  }, []);
 
-  const handleTextExtracted = useCallback((p: PageText[]) => {
-    setPages(p);
+  const handleLoad = useCallback((n: number) => {
+    setNumPages(n);
   }, []);
 
   const handlePageChange = useCallback(
     (n: number) => {
       tts.stop();
+      setPageData(null);
       setCurrentPage(n);
     },
     [tts],
@@ -47,7 +48,8 @@ export default function Home() {
   const handleFile = useCallback(
     (f: File) => {
       tts.stop();
-      setPages([]);
+      setPageData(null);
+      setNumPages(0);
       setCurrentPage(1);
       setFile(f);
     },
@@ -55,16 +57,15 @@ export default function Home() {
   );
 
   const onPlay = useCallback(() => {
-    if (!pageText || !pageText.text.trim()) return;
+    if (!pageData || !pageData.text.trim()) return;
     void tts.play({
-      text: pageText.text,
+      text: pageData.text,
       voice,
       rate,
-      words: pageText.words,
+      words: pageData.words,
     });
-  }, [pageText, voice, rate, tts]);
+  }, [pageData, voice, rate, tts]);
 
-  // Keyboard: Space play/pause, arrows paginate.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
@@ -75,14 +76,14 @@ export default function Home() {
         else if (tts.alignedWords.length) tts.resume();
         else onPlay();
       } else if (e.code === "ArrowRight") {
-        handlePageChange(Math.min(pages.length, currentPage + 1));
+        handlePageChange(Math.min(numPages, currentPage + 1));
       } else if (e.code === "ArrowLeft") {
         handlePageChange(Math.max(1, currentPage - 1));
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [tts, onPlay, handlePageChange, pages.length, currentPage]);
+  }, [tts, onPlay, handlePageChange, numPages, currentPage]);
 
   if (!file) {
     return (
@@ -97,7 +98,7 @@ export default function Home() {
   }
 
   const noTextMessage =
-    pages.length > 0 && pageText && pageText.words.length === 0
+    pageData && pageData.words.length === 0
       ? "No text on this page (scanned/image PDFs are not supported — no OCR)."
       : null;
 
@@ -110,7 +111,8 @@ export default function Home() {
           onClick={() => {
             tts.stop();
             setFile(null);
-            setPages([]);
+            setPageData(null);
+            setNumPages(0);
           }}
           className="text-sm px-3 py-1 rounded bg-gray-100 dark:bg-gray-800"
         >
@@ -122,7 +124,8 @@ export default function Home() {
           file={file}
           currentPage={currentPage}
           onPageChange={setCurrentPage}
-          onTextExtracted={handleTextExtracted}
+          onPageReady={handlePageReady}
+          onLoad={handleLoad}
           currentWordIndex={tts.currentWordIndex}
           noTextMessage={noTextMessage}
         />
