@@ -1,0 +1,29 @@
+{
+  "name": "ebook-reader",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "15.5.15",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
+    "pdfjs-dist": "4.8.69",
+    "msedge-tts": "2.0.5"
+  },
+  "devDependencies": {
+    "typescript": "5.6.3",
+    "@types/node": "22.9.0",
+    "@types/react": "19.0.1",
+    "@types/react-dom": "19.0.1",
+    "tailwindcss": "3.4.14",
+    "postcss": "8.4.49",
+    "autoprefixer": "10.4.20",
+    "eslint": "9.14.0",
+    "eslint-config-next": "15.5.15"
+  }
+}
