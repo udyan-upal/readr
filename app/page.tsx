@@ -8,7 +8,7 @@ import PdfOutline from "@/components/PdfOutline";
 import PlayerControls from "@/components/PlayerControls";
 import { useTtsPlayer } from "@/hooks/useTtsPlayer";
 import { DEFAULT_VOICE, VOICES } from "@/lib/voices";
-import type { OutlineItem, PageText, Voice, Word } from "@/types";
+import type { OutlineItem, PageText, PdfNote, Voice, Word } from "@/types";
 
 function hasWordPositions(words: Word[]): boolean {
   return words.some((w) => w.x != null && w.y != null && w.w != null && w.h != null);
@@ -31,6 +31,41 @@ interface SavedPdf {
   rate: string | null;
 }
 
+interface RawPdfNote {
+  id: string;
+  page_number?: number;
+  pageNumber?: number;
+  note_text?: string;
+  noteText?: string;
+  line_y?: number;
+  lineY?: number;
+  word_index?: number;
+  wordIndex?: number;
+  created_at?: string;
+  createdAt?: string;
+}
+
+function normalizeNote(note: RawPdfNote): PdfNote {
+  return {
+    id: note.id,
+    pageNumber: Number(note.pageNumber ?? note.page_number ?? 0),
+    noteText: String(note.noteText ?? note.note_text ?? ""),
+    lineY: Number(note.lineY ?? note.line_y ?? 0),
+    wordIndex: Number(note.wordIndex ?? note.word_index ?? 0),
+    createdAt: String(note.createdAt ?? note.created_at ?? ""),
+  };
+}
+
+async function readApiError(res: Response, fallback: string): Promise<string> {
+  try {
+    const data = (await res.json()) as { error?: string };
+    if (typeof data.error === "string" && data.error.trim()) return data.error;
+  } catch {
+    // Ignore parse failures and use fallback.
+  }
+  return fallback;
+}
+
 export default function Home() {
   const { isLoaded, isSignedIn } = useUser();
   const [file, setFile] = useState<File | null>(null);
@@ -47,6 +82,8 @@ export default function Home() {
   const [savedPdfs, setSavedPdfs] = useState<SavedPdf[]>([]);
   const [loadingSaved, setLoadingSaved] = useState(false);
   const [initialPage, setInitialPage] = useState(1);
+  const [notesByPage, setNotesByPage] = useState<Record<number, PdfNote[]>>({});
+  const [currentPdfPath, setCurrentPdfPath] = useState<string | null>(null);
 
   const tts = useTtsPlayer();
   const pendingAutoPageRef = useRef<number | null>(null);
@@ -210,12 +247,15 @@ export default function Home() {
     setCurrentPage(1);
     setOutline([]);
     setInitialPage(1);
+    setNotesByPage({});
+    setCurrentPdfPath(null);
   }, [tts]);
 
   const handleFile = useCallback(
     (f: File) => {
       resetReader();
       currentPdfPathRef.current = null;
+      setCurrentPdfPath(null);
       currentPdfNameRef.current = f.name;
       const slug = encodeURIComponent(f.name.replace(/\.pdf$/i, ""));
       window.history.replaceState(null, "", `/read/${slug}`);
@@ -228,7 +268,10 @@ export default function Home() {
         fetch("/api/upload-pdf", { method: "POST", body: fd })
           .then((r) => r.json())
           .then((d: { path?: string }) => {
-            if (d.path) currentPdfPathRef.current = d.path;
+            if (d.path) {
+              currentPdfPathRef.current = d.path;
+              setCurrentPdfPath(d.path);
+            }
             setUploadStatus("done");
             refreshSavedList();
           })
@@ -250,6 +293,7 @@ export default function Home() {
         if (pdf.rate) setRate(pdf.rate);
         setInitialPage(pdf.lastPage ?? 1);
         currentPdfPathRef.current = pdf.path;
+        setCurrentPdfPath(pdf.path);
         currentPdfNameRef.current = pdf.name;
         const slug = encodeURIComponent(pdf.name.replace(/\.pdf$/i, ""));
         window.history.replaceState(null, "", `/read/${slug}`);
@@ -272,6 +316,7 @@ export default function Home() {
         setInitialPage(resumePage);
         pendingResumeRef.current = { page: resumePage, wordIndex: pdf.wordIndex ?? 0 };
         currentPdfPathRef.current = pdf.path;
+        setCurrentPdfPath(pdf.path);
         currentPdfNameRef.current = pdf.name;
         const slug = encodeURIComponent(pdf.name.replace(/\.pdf$/i, ""));
         window.history.replaceState(null, "", `/read/${slug}`);
@@ -362,6 +407,77 @@ export default function Home() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [tts, onPlay, handlePageChange, numPages, currentPage]);
+
+  const fetchNotesForPage = useCallback(async (path: string, page: number) => {
+    const res = await fetch(`/api/notes?path=${encodeURIComponent(path)}&page=${page}`);
+    if (!res.ok) throw new Error("Failed to load notes");
+    const data = (await res.json()) as { notes?: RawPdfNote[] };
+    const normalized = Array.isArray(data.notes) ? data.notes.map(normalizeNote) : [];
+    setNotesByPage((prev) => ({
+      ...prev,
+      [page]: normalized,
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (!currentPdfPath) return;
+    fetchNotesForPage(currentPdfPath, currentPage).catch((err) => {
+      console.warn("[notes] fetch failed", err);
+    });
+  }, [currentPage, currentPdfPath, fetchNotesForPage]);
+
+  const handleAddNote = useCallback(async (lineY: number, wordIndex: number, text: string) => {
+    if (!currentPdfPath) throw new Error("Missing PDF path");
+    const res = await fetch("/api/notes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        path: currentPdfPath,
+        pageNumber: currentPage,
+        noteText: text,
+        lineY,
+        wordIndex,
+      }),
+    });
+    if (!res.ok) throw new Error(await readApiError(res, "Failed to save note"));
+    const data = (await res.json()) as { note?: RawPdfNote };
+    if (!data.note) return;
+    const note = normalizeNote(data.note);
+    setNotesByPage((prev) => {
+      const nextPageNotes = [...(prev[currentPage] ?? []).filter((n) => n.id !== note.id), note]
+        .sort((a, b) => a.lineY - b.lineY);
+      return { ...prev, [currentPage]: nextPageNotes };
+    });
+  }, [currentPage, currentPdfPath]);
+
+  const handleUpdateNote = useCallback(async (noteId: string, text: string) => {
+    const res = await fetch(`/api/notes?id=${encodeURIComponent(noteId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ noteText: text }),
+    });
+    if (!res.ok) throw new Error(await readApiError(res, "Failed to update note"));
+    const data = (await res.json()) as { note?: RawPdfNote };
+    const updated = data.note ? normalizeNote(data.note) : null;
+    setNotesByPage((prev) => ({
+      ...prev,
+      [currentPage]: (prev[currentPage] ?? []).map((n) => {
+        if (n.id !== noteId) return n;
+        return updated ?? { ...n, noteText: text };
+      }),
+    }));
+  }, [currentPage]);
+
+  const handleDeleteNote = useCallback(async (noteId: string) => {
+    const res = await fetch(`/api/notes?id=${encodeURIComponent(noteId)}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) throw new Error(await readApiError(res, "Failed to delete note"));
+    setNotesByPage((prev) => ({
+      ...prev,
+      [currentPage]: (prev[currentPage] ?? []).filter((n) => n.id !== noteId),
+    }));
+  }, [currentPage]);
 
   if (!isLoaded) {
     return (
@@ -477,6 +593,10 @@ export default function Home() {
             onOutline={setOutline}
             currentWordIndex={tts.currentWordIndex}
             noTextMessage={noTextMessage}
+            notes={currentPdfPath ? (notesByPage[currentPage] ?? []) : []}
+            onNoteAdd={currentPdfPath ? handleAddNote : undefined}
+            onNoteUpdate={currentPdfPath ? handleUpdateNote : undefined}
+            onNoteDelete={currentPdfPath ? handleDeleteNote : undefined}
           />
         </div>
       </div>

@@ -39,3 +39,12 @@ export interface OutlineItem {
   pageNumber?: number;
   items: OutlineItem[];
 }
+
+export interface PdfNote {
+  id: string;
+  pageNumber: number;
+  noteText: string;
+  lineY: number;
+  wordIndex: number;
+  createdAt: string;
+}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import type { OutlineItem, PageText, Word } from "@/types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { OutlineItem, PageText, PdfNote, Word } from "@/types";
 
 // pdf.js outline node shape (narrow subset we need).
 interface RawOutlineItem {
@@ -39,6 +39,27 @@ async function resolveOutline(
   return out;
 }
 
+interface Line {
+  y: number;
+  bottom: number;
+  firstWordIndex: number;
+}
+
+function computeLines(words: Word[]): Line[] {
+  const lines: Line[] = [];
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    if (w.y == null || w.h == null) continue;
+    const found = lines.find((l) => w.y! >= l.y - 4 && w.y! <= l.y + 14);
+    if (found) {
+      found.bottom = Math.max(found.bottom, w.y! + w.h!);
+    } else {
+      lines.push({ y: w.y!, bottom: w.y! + w.h!, firstWordIndex: i });
+    }
+  }
+  return lines.sort((a, b) => a.y - b.y);
+}
+
 interface Props {
   file: File | null;
   currentPage: number;
@@ -50,6 +71,11 @@ interface Props {
   onOutline?: (items: OutlineItem[]) => void;
   currentWordIndex: number;
   noTextMessage?: string | null;
+  // Notes
+  notes?: PdfNote[];
+  onNoteAdd?: (lineY: number, wordIndex: number, text: string) => Promise<void>;
+  onNoteUpdate?: (noteId: string, text: string) => Promise<void>;
+  onNoteDelete?: (noteId: string) => Promise<void>;
 }
 
 interface CanvasSize {
@@ -69,6 +95,10 @@ export default function PdfViewer({
   onOutline,
   currentWordIndex,
   noTextMessage,
+  notes,
+  onNoteAdd,
+  onNoteUpdate,
+  onNoteDelete,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textLayerRef = useRef<HTMLDivElement>(null);
@@ -84,6 +114,87 @@ export default function PdfViewer({
   const renderTokenRef = useRef(0);
   const prefetchedPagesRef = useRef<Set<number>>(new Set());
   const prefetchTokenRef = useRef(0);
+
+  // Note state
+  const [lines, setLines] = useState<Line[]>([]);
+  const [hoveredLine, setHoveredLine] = useState<Line | null>(null);
+  const [editingLine, setEditingLine] = useState<Line | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState("");
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const noteTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    setLines(computeLines(pageWords));
+    setHoveredLine(null);
+    setEditingLine(null);
+    setEditingNoteId(null);
+    setNoteText("");
+    setNoteError(null);
+    setIsSavingNote(false);
+  }, [pageWords]);
+
+  const cancelNote = useCallback(() => {
+    setEditingLine(null);
+    setEditingNoteId(null);
+    setNoteText("");
+    setNoteError(null);
+    setIsSavingNote(false);
+  }, []);
+
+  const openNoteEditor = useCallback((line: Line) => {
+    setEditingLine(line);
+    setEditingNoteId(null);
+    setNoteText("");
+    setNoteError(null);
+    setHoveredLine(null);
+    setTimeout(() => noteTextareaRef.current?.focus(), 50);
+  }, []);
+
+  const openExistingNote = useCallback((note: PdfNote) => {
+    setEditingLine({ y: note.lineY, bottom: note.lineY + 20, firstWordIndex: note.wordIndex });
+    setEditingNoteId(note.id);
+    setNoteText(note.noteText);
+    setNoteError(null);
+    setHoveredLine(null);
+    setTimeout(() => noteTextareaRef.current?.focus(), 50);
+  }, []);
+
+  const handleSaveNote = useCallback(async () => {
+    const text = noteText.trim();
+    if (!editingLine || !text || isSavingNote) return;
+    setIsSavingNote(true);
+    setNoteError(null);
+    try {
+      if (editingNoteId && onNoteUpdate) {
+        await onNoteUpdate(editingNoteId, text);
+      } else if (onNoteAdd) {
+        await onNoteAdd(editingLine.y, editingLine.firstWordIndex, text);
+      }
+      cancelNote();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to save note";
+      setNoteError(message);
+    } finally {
+      setIsSavingNote(false);
+    }
+  }, [editingLine, editingNoteId, noteText, onNoteAdd, onNoteUpdate, cancelNote, isSavingNote]);
+
+  const handleDeleteNote = useCallback(async () => {
+    if (!editingNoteId || !onNoteDelete || isSavingNote) return;
+    setIsSavingNote(true);
+    setNoteError(null);
+    try {
+      await onNoteDelete(editingNoteId);
+      cancelNote();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete note";
+      setNoteError(message);
+    } finally {
+      setIsSavingNote(false);
+    }
+  }, [editingNoteId, onNoteDelete, cancelNote, isSavingNote]);
 
   // Load PDF.
   useEffect(() => {
@@ -338,6 +449,8 @@ export default function PdfViewer({
     activeWord.w != null &&
     activeWord.h != null;
 
+  const notesEnabled = !!onNoteAdd;
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 px-4 py-2 text-sm">
@@ -417,6 +530,101 @@ export default function PdfViewer({
               }
             />
           </div>
+
+          {/* Notes interaction layer */}
+          {notesEnabled && canvasSize.cssW > 0 && (
+            <div
+              className="absolute inset-0 pdf-notes-layer"
+              style={{ width: canvasSize.cssW, height: canvasSize.cssH }}
+            >
+              {/* Per-line hover zones */}
+              {lines.map((line, i) => {
+                const lineH = Math.max(16, line.bottom - line.y);
+                const lineNote = (notes ?? []).find((n) => Math.abs(n.lineY - line.y) < 10);
+                const isHovered = hoveredLine?.y === line.y;
+                return (
+                  <div
+                    key={i}
+                    className="note-hover-zone"
+                    style={{ top: line.y, height: lineH }}
+                    onMouseEnter={() => { if (!editingLine) setHoveredLine(line); }}
+                    >
+                    {isHovered && !editingLine && !lineNote && (
+                      <button
+                        className="note-add-btn"
+                        style={{ height: lineH }}
+                        onClick={() => openNoteEditor(line)}
+                        title="Add note"
+                      >
+                        +
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Note markers for lines with existing notes */}
+              {(notes ?? []).map((note) => (
+                <button
+                  key={note.id}
+                  className="note-marker"
+                  style={{ top: note.lineY }}
+                  onClick={() => openExistingNote(note)}
+                  title={note.noteText}
+                />
+              ))}
+
+              {/* Note editor popover */}
+              {editingLine && (
+                <div
+                  className="note-editor-popover"
+                  style={{
+                    top: Math.min(
+                      editingLine.y,
+                      Math.max(0, canvasSize.cssH - 210),
+                    ),
+                  }}
+                  onMouseEnter={() => setHoveredLine(null)}
+                >
+                  <div className="note-editor-header">
+                    {editingNoteId ? "Edit note" : "Add note"}
+                  </div>
+                  <textarea
+                    ref={noteTextareaRef}
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    placeholder="Type your note…"
+                    className="note-editor-textarea"
+                    disabled={isSavingNote}
+                    onKeyDown={(e) => {
+                      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") void handleSaveNote();
+                      if (e.key === "Escape") cancelNote();
+                    }}
+                  />
+                  {noteError && <div className="note-editor-error">{noteError}</div>}
+                  <div className="note-editor-actions">
+                    {editingNoteId && (
+                      <button className="note-btn note-btn-delete" onClick={() => void handleDeleteNote()} disabled={isSavingNote}>
+                        Delete
+                      </button>
+                    )}
+                    <button className="note-btn note-btn-cancel" onClick={cancelNote} disabled={isSavingNote}>
+                      Cancel
+                    </button>
+                    <button
+                      className="note-btn note-btn-save"
+                      onClick={() => void handleSaveNote()}
+                      disabled={!noteText.trim() || isSavingNote}
+                    >
+                      {isSavingNote ? "Saving..." : "Save"}
+                    </button>
+                  </div>
+                  <div className="note-editor-hint">⌘↵ to save · Esc to cancel</div>
+                </div>
+              )}
+            </div>
+          )}
+
           {!loading && pageWords.length === 0 && noTextMessage && (
             <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-gray-500 bg-white/70 dark:bg-black/50">
               {noTextMessage}

@@ -98,3 +98,201 @@ body {
   mix-blend-mode: screen;
   background: rgba(234, 179, 8, 0.45);
 }
+
+/* Notes layer: Notion-style right gutter interactions per text line. */
+.pdf-notes-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.note-hover-zone {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: auto;
+}
+
+.note-add-btn {
+  position: absolute;
+  right: 8px;
+  top: 0;
+  width: 24px;
+  border: 1px solid #d1d5db;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #111827;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.note-add-btn:hover {
+  background: #f9fafb;
+}
+
+.note-marker {
+  position: absolute;
+  right: 10px;
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 9999px;
+  background: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95), 0 1px 6px rgba(0, 0, 0, 0.2);
+  transform: translateY(2px);
+  pointer-events: auto;
+}
+
+.note-marker:hover {
+  background: #d97706;
+}
+
+.note-editor-popover {
+  position: absolute;
+  right: -294px;
+  width: 280px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.16);
+  padding: 10px;
+  pointer-events: auto;
+}
+
+.note-editor-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4b5563;
+  margin-bottom: 8px;
+}
+
+.note-editor-textarea {
+  width: 100%;
+  min-height: 112px;
+  resize: vertical;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #111827;
+  background: #ffffff;
+}
+
+.note-editor-textarea:focus {
+  outline: 2px solid rgba(59, 130, 246, 0.25);
+  border-color: #60a5fa;
+}
+
+.note-editor-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.note-editor-error {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #dc2626;
+}
+
+.note-btn {
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+}
+
+.note-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.note-btn-cancel {
+  color: #374151;
+  background: #f3f4f6;
+}
+
+.note-btn-save {
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.note-btn-save:disabled {
+  background: #93c5fd;
+  cursor: not-allowed;
+}
+
+.note-btn-delete {
+  color: #ffffff;
+  background: #dc2626;
+  margin-right: auto;
+}
+
+.note-editor-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.dark .note-add-btn {
+  border-color: #4b5563;
+  background: rgba(17, 24, 39, 0.96);
+  color: #f9fafb;
+}
+
+.dark .note-add-btn:hover {
+  background: #111827;
+}
+
+.dark .note-marker {
+  box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.96), 0 1px 6px rgba(0, 0, 0, 0.4);
+}
+
+.dark .note-editor-popover {
+  background: rgba(17, 24, 39, 0.98);
+  border-color: #374151;
+}
+
+.dark .note-editor-header,
+.dark .note-editor-hint {
+  color: #9ca3af;
+}
+
+.dark .note-editor-error {
+  color: #fca5a5;
+}
+
+.dark .note-editor-textarea {
+  border-color: #4b5563;
+  color: #f9fafb;
+  background: #111827;
+}
+
+.dark .note-btn-cancel {
+  color: #e5e7eb;
+  background: #374151;
+}
+
+@media (max-width: 1024px) {
+  .note-add-btn {
+    right: 8px;
+  }
+
+  .note-marker {
+    right: 10px;
+  }
+
+  .note-editor-popover {
+    right: 10px;
+    width: min(280px, calc(100vw - 56px));
+  }
+}
