@@ -359,14 +359,16 @@ export default function Home() {
     }
   }, [pageData, voice, rate, tts]);
 
-  // Restart from current word when voice/rate changes mid-playback
+  // Restart from current word when voice/rate changes — works whether playing or paused
   useEffect(() => {
     const prev = prevPlaybackSettingsRef.current;
     const changed = prev.voice !== voice || prev.rate !== rate;
     prevPlaybackSettingsRef.current = { voice, rate };
     if (!changed) return;
     prefetchKeyRef.current = "";
-    if (!tts.isPlaying || !pageData || !pageData.words.length) return;
+    // hasAudio: either actively playing, or paused mid-playback (alignedWords populated)
+    const hasAudio = tts.isPlaying || tts.alignedWords.length > 0;
+    if (!hasAudio || !pageData || !pageData.words.length) return;
     const startWordIndex = Math.max(0, Math.min(tts.currentWordIndex, pageData.words.length - 1));
     const text = pageData.words.slice(startWordIndex).map((w) => w.text).join(" ").trim();
     if (!text) return;
