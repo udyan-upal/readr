@@ -116,7 +116,7 @@ export function useTtsPlayer() {
     revokeSlot(0); revokeSlot(1);
     queuedRef.current = null;
     inFlightKeyRef.current = null;
-    setState((s) => ({ ...s, isPlaying: false, currentWordIndex: -1, progress: 0 }));
+    setState((s) => ({ ...s, isPlaying: false, currentWordIndex: -1, progress: 0, alignedWords: [] }));
   }, [initAudios, revokeSlot]);
 
   const pause = useCallback(() => {

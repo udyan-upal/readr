@@ -332,6 +332,7 @@ export default function Home() {
 
   const onPlay = useCallback(() => {
     if (!pageData || !pageData.text.trim()) return;
+    if (tts.alignedWords.length > 0) { tts.resume(); return; }
     void tts.play({ text: pageData.text, voice, rate, words: pageData.words });
   }, [pageData, voice, rate, tts]);
 
