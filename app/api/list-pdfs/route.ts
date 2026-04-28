@@ -17,7 +17,10 @@ export async function GET() {
       .eq("user_id", userId),
   ]);
 
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[list-pdfs] Supabase error:", error);
+    return Response.json({ error: error.message }, { status: 500 });
+  }
 
   const sessionMap = Object.fromEntries(
     (sessions ?? []).map((s) => [s.pdf_path as string, s]),
