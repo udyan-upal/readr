@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { FaNotesMedical } from "react-icons/fa";
 import type { OutlineItem, PageText, PdfNote, Word } from "@/types";
 
 // pdf.js outline node shape (narrow subset we need).
@@ -73,6 +74,7 @@ interface Props {
   noTextMessage?: string | null;
   // Notes
   notes?: PdfNote[];
+  highlightNoteId?: string | null;
   onNoteAdd?: (lineY: number, wordIndex: number, text: string) => Promise<void>;
   onNoteUpdate?: (noteId: string, text: string) => Promise<void>;
   onNoteDelete?: (noteId: string) => Promise<void>;
@@ -96,6 +98,7 @@ export default function PdfViewer({
   currentWordIndex,
   noTextMessage,
   notes,
+  highlightNoteId,
   onNoteAdd,
   onNoteUpdate,
   onNoteDelete,
@@ -124,6 +127,8 @@ export default function PdfViewer({
   const [noteError, setNoteError] = useState<string | null>(null);
   const [isSavingNote, setIsSavingNote] = useState(false);
   const noteTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const pageContainerRef = useRef<HTMLDivElement>(null);
+  const [popoverFixedStyle, setPopoverFixedStyle] = useState<CSSProperties>({});
 
   useEffect(() => {
     setLines(computeLines(pageWords));
@@ -142,6 +147,21 @@ export default function PdfViewer({
     setNoteError(null);
     setIsSavingNote(false);
   }, []);
+
+  useEffect(() => {
+    if (!editingLine || !pageContainerRef.current) return;
+    const rect = pageContainerRef.current.getBoundingClientRect();
+    const topInPdf = Math.min(editingLine.y, Math.max(0, canvasSize.cssH - 210));
+    const top = rect.top + topInPdf;
+    const popoverW = 280;
+    const gap = 14;
+    if (rect.right + popoverW + gap <= window.innerWidth) {
+      setPopoverFixedStyle({ position: "fixed", top, left: rect.right + gap, width: popoverW });
+    } else {
+      // no viewport space on right — render inside PDF, anchored to right edge
+      setPopoverFixedStyle({ position: "fixed", top, right: window.innerWidth - rect.right + 10, width: Math.min(popoverW, rect.width - 20) });
+    }
+  }, [editingLine, canvasSize.cssH]);
 
   const openNoteEditor = useCallback((line: Line) => {
     setEditingLine(line);
@@ -490,6 +510,7 @@ export default function PdfViewer({
       <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-950 p-6 flex justify-center items-start">
         {loading && <div className="text-gray-500">Loading PDF…</div>}
         <div
+          ref={pageContainerRef}
           className="relative shadow-lg rounded bg-white"
           style={{ width: canvasSize.cssW, height: canvasSize.cssH }}
         >
@@ -567,23 +588,20 @@ export default function PdfViewer({
               {(notes ?? []).map((note) => (
                 <button
                   key={note.id}
-                  className="note-marker"
+                  className={`note-marker${highlightNoteId === note.id ? " note-marker-highlight" : ""}`}
                   style={{ top: note.lineY }}
                   onClick={() => openExistingNote(note)}
                   title={note.noteText}
-                />
+                >
+                  <FaNotesMedical className="note-marker-icon" />
+                </button>
               ))}
 
               {/* Note editor popover */}
               {editingLine && (
                 <div
                   className="note-editor-popover"
-                  style={{
-                    top: Math.min(
-                      editingLine.y,
-                      Math.max(0, canvasSize.cssH - 210),
-                    ),
-                  }}
+                  style={popoverFixedStyle}
                   onMouseEnter={() => setHoveredLine(null)}
                 >
                   <div className="note-editor-header">

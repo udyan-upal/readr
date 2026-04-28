@@ -5,7 +5,9 @@ import { useUser, SignInButton, UserButton } from "@clerk/nextjs";
 import PdfUploader from "@/components/PdfUploader";
 import PdfViewer from "@/components/PdfViewer";
 import PdfOutline from "@/components/PdfOutline";
+import NotesPanel from "@/components/NotesPanel";
 import PlayerControls from "@/components/PlayerControls";
+import { FaNotesMedical } from "react-icons/fa";
 import { useTtsPlayer } from "@/hooks/useTtsPlayer";
 import { DEFAULT_VOICE, VOICES } from "@/lib/voices";
 import type { OutlineItem, PageText, PdfNote, Voice, Word } from "@/types";
@@ -83,6 +85,9 @@ export default function Home() {
   const [loadingSaved, setLoadingSaved] = useState(false);
   const [initialPage, setInitialPage] = useState(1);
   const [notesByPage, setNotesByPage] = useState<Record<number, PdfNote[]>>({});
+  const [allNotes, setAllNotes] = useState<PdfNote[]>([]);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [highlightNoteId, setHighlightNoteId] = useState<string | null>(null);
   const [currentPdfPath, setCurrentPdfPath] = useState<string | null>(null);
 
   const tts = useTtsPlayer();
@@ -248,6 +253,8 @@ export default function Home() {
     setOutline([]);
     setInitialPage(1);
     setNotesByPage({});
+    setAllNotes([]);
+    setHighlightNoteId(null);
     setCurrentPdfPath(null);
   }, [tts]);
 
@@ -413,10 +420,15 @@ export default function Home() {
     if (!res.ok) throw new Error("Failed to load notes");
     const data = (await res.json()) as { notes?: RawPdfNote[] };
     const normalized = Array.isArray(data.notes) ? data.notes.map(normalizeNote) : [];
-    setNotesByPage((prev) => ({
-      ...prev,
-      [page]: normalized,
-    }));
+    setNotesByPage((prev) => ({ ...prev, [page]: normalized }));
+  }, []);
+
+  const fetchAllNotes = useCallback(async (path: string) => {
+    const res = await fetch(`/api/notes?path=${encodeURIComponent(path)}`);
+    if (!res.ok) return;
+    const data = (await res.json()) as { notes?: RawPdfNote[] };
+    const normalized = Array.isArray(data.notes) ? data.notes.map(normalizeNote) : [];
+    setAllNotes(normalized);
   }, []);
 
   useEffect(() => {
@@ -425,6 +437,11 @@ export default function Home() {
       console.warn("[notes] fetch failed", err);
     });
   }, [currentPage, currentPdfPath, fetchNotesForPage]);
+
+  useEffect(() => {
+    if (!currentPdfPath) { setAllNotes([]); return; }
+    fetchAllNotes(currentPdfPath).catch(() => {});
+  }, [currentPdfPath, fetchAllNotes]);
 
   const handleAddNote = useCallback(async (lineY: number, wordIndex: number, text: string) => {
     if (!currentPdfPath) throw new Error("Missing PDF path");
@@ -448,6 +465,8 @@ export default function Home() {
         .sort((a, b) => a.lineY - b.lineY);
       return { ...prev, [currentPage]: nextPageNotes };
     });
+    setAllNotes((prev) => [...prev.filter((n) => n.id !== note.id), note]
+      .sort((a, b) => a.pageNumber !== b.pageNumber ? a.pageNumber - b.pageNumber : a.lineY - b.lineY));
   }, [currentPage, currentPdfPath]);
 
   const handleUpdateNote = useCallback(async (noteId: string, text: string) => {
@@ -466,6 +485,10 @@ export default function Home() {
         return updated ?? { ...n, noteText: text };
       }),
     }));
+    setAllNotes((prev) => prev.map((n) => {
+      if (n.id !== noteId) return n;
+      return updated ?? { ...n, noteText: text };
+    }));
   }, [currentPage]);
 
   const handleDeleteNote = useCallback(async (noteId: string) => {
@@ -477,6 +500,7 @@ export default function Home() {
       ...prev,
       [currentPage]: (prev[currentPage] ?? []).filter((n) => n.id !== noteId),
     }));
+    setAllNotes((prev) => prev.filter((n) => n.id !== noteId));
   }, [currentPage]);
 
   if (!isLoaded) {
@@ -567,6 +591,18 @@ export default function Home() {
           {uploadStatus === "uploading" && <span className="text-xs text-gray-400">Saving…</span>}
           {uploadStatus === "done" && <span className="text-xs text-green-600">Saved</span>}
           {uploadStatus === "error" && <span className="text-xs text-red-500">Save failed</span>}
+          {currentPdfPath && (
+            <button
+              type="button"
+              onClick={() => setNotesOpen((o) => !o)}
+              className={`notes-panel-toggle${notesOpen ? " active" : ""}`}
+              aria-label="Toggle notes"
+              title="All notes"
+            >
+              <FaNotesMedical size={16} />
+              {allNotes.length > 0 && <span className="notes-toggle-count">{allNotes.length}</span>}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => { resetReader(); setFile(null); window.history.replaceState(null, "", "/"); }}
@@ -594,11 +630,25 @@ export default function Home() {
             currentWordIndex={tts.currentWordIndex}
             noTextMessage={noTextMessage}
             notes={currentPdfPath ? (notesByPage[currentPage] ?? []) : []}
+            highlightNoteId={highlightNoteId}
             onNoteAdd={currentPdfPath ? handleAddNote : undefined}
             onNoteUpdate={currentPdfPath ? handleUpdateNote : undefined}
             onNoteDelete={currentPdfPath ? handleDeleteNote : undefined}
           />
         </div>
+        {notesOpen && currentPdfPath && (
+          <NotesPanel
+            notes={allNotes}
+            currentPage={currentPage}
+            onNavigate={(page, noteId) => {
+              handlePageChange(page);
+              setHighlightNoteId(noteId);
+              setTimeout(() => setHighlightNoteId(null), 1800);
+            }}
+            onEdit={handleUpdateNote}
+            onDelete={handleDeleteNote}
+          />
+        )}
       </div>
       <PlayerControls
         voices={voices}

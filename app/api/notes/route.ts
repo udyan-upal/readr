@@ -22,11 +22,26 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const path = searchParams.get("path");
   const page = searchParams.get("page");
-  if (!path || !page) return Response.json({ notes: [] });
+  if (!path) return Response.json({ notes: [] });
+
+  const supabase = createAdminClient();
+
+  if (!page) {
+    // Return all notes for this PDF across all pages
+    const { data, error } = await supabase
+      .from("pdf_notes")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("pdf_path", path)
+      .order("page_number", { ascending: true })
+      .order("line_y", { ascending: true });
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ notes: data ?? [] });
+  }
+
   const pageNumber = toInt(page);
   if (pageNumber == null || pageNumber < 1) return Response.json({ notes: [] });
 
-  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("pdf_notes")
     .select("*")
