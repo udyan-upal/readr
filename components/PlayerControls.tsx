@@ -1,10 +1,12 @@
 "use client";
 
-import type { Voice } from "@/types";
-import VoiceSelector from "./VoiceSelector";
+const READER_VOICES = [
+  { label: "Ava",   value: "en-US-AvaNeural" },
+  { label: "Chris", value: "en-US-ChristopherNeural" },
+  { label: "Emma",  value: "en-US-EmmaNeural" },
+];
 
 interface Props {
-  voices: Voice[];
   voice: string;
   onVoiceChange: (v: string) => void;
   rate: string;
@@ -33,7 +35,7 @@ const btnBase: React.CSSProperties = {
 };
 
 export default function PlayerControls({
-  voices, voice, onVoiceChange,
+  voice, onVoiceChange,
   rate, onRateChange,
   isPlaying, isLoading,
   onPlay, onPause, onStop,
@@ -52,7 +54,30 @@ export default function PlayerControls({
         {/* LEFT — Voice */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--text-3)", whiteSpace: "nowrap" }}>Voice</span>
-          <VoiceSelector voices={voices} value={voice} onChange={onVoiceChange} />
+          <div style={{ display: "flex", border: "1.5px solid var(--border)", borderRadius: 8, overflow: "hidden", background: "var(--bg)" }}>
+            {READER_VOICES.map((v, i) => (
+              <button
+                key={v.value}
+                type="button"
+                onClick={() => onVoiceChange(v.value)}
+                style={{
+                  padding: "4px 10px",
+                  border: "none",
+                  borderRight: i < READER_VOICES.length - 1 ? "1px solid var(--border)" : "none",
+                  background: voice === v.value ? "var(--accent)" : "transparent",
+                  color: voice === v.value ? "#fff" : "var(--text-2)",
+                  fontSize: 12,
+                  fontWeight: voice === v.value ? 600 : 400,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  transition: "background 0.15s, color 0.15s",
+                  minWidth: 40,
+                }}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* CENTER — Play/Pause + Stop */}

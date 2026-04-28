@@ -9,8 +9,8 @@ import NotesPanel from "@/components/NotesPanel";
 import PlayerControls from "@/components/PlayerControls";
 import { FaNotesMedical } from "react-icons/fa";
 import { useTtsPlayer } from "@/hooks/useTtsPlayer";
-import { DEFAULT_VOICE, VOICES } from "@/lib/voices";
-import type { OutlineItem, PageText, PdfNote, Voice, Word } from "@/types";
+import { DEFAULT_VOICE } from "@/lib/voices";
+import type { OutlineItem, PageText, PdfNote, Word } from "@/types";
 
 function hasWordPositions(words: Word[]): boolean {
   return words.some((w) => w.x != null && w.y != null && w.w != null && w.h != null);
@@ -80,7 +80,6 @@ export default function Home() {
   const [outlineOpen, setOutlineOpen] = useState(true);
   const [voice, setVoice] = useState(DEFAULT_VOICE);
   const [rate, setRate] = useState("+0%");
-  const [voices, setVoices] = useState<Voice[]>(VOICES.filter((v) => v.locale.toLowerCase() === "en-us"));
   const [savedPdfs, setSavedPdfs] = useState<SavedPdf[]>([]);
   const [loadingSaved, setLoadingSaved] = useState(false);
   const [initialPage, setInitialPage] = useState(1);
@@ -175,15 +174,6 @@ export default function Home() {
     }
   }, [tts.isPlaying, tts.endedCount, isSignedIn, currentPage, voice, rate, saveSession]);
 
-  useEffect(() => {
-    fetch("/api/voices")
-      .then((r) => r.json())
-      .then((d: { voices: Voice[] }) => {
-        if (Array.isArray(d.voices) && d.voices.length)
-          setVoices(d.voices.filter((v) => v.locale.toLowerCase() === "en-us"));
-      })
-      .catch(() => {});
-  }, []);
 
   const refreshSavedList = useCallback(() => {
     fetch("/api/list-pdfs")
@@ -751,7 +741,6 @@ export default function Home() {
         )}
       </div>
       <PlayerControls
-        voices={voices}
         voice={voice}
         onVoiceChange={setVoice}
         rate={rate}

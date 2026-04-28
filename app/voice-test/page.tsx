@@ -25,6 +25,8 @@ export default function VoiceTestPage() {
   const [log, setLog] = useState<{ voice: string; rate: string; ms: number }[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blobUrlRef = useRef<string | null>(null);
+  const playLockedRef = useRef(false);
+  const playRequestIdRef = useRef(0);
 
   useEffect(() => {
     fetch("/api/voices")
@@ -40,7 +42,10 @@ export default function VoiceTestPage() {
   }, {});
 
   async function play() {
+    if (playLockedRef.current) return;
     if (!text.trim()) return;
+    playLockedRef.current = true;
+    const requestId = ++playRequestIdRef.current;
     setLoading(true);
     setError(null);
     if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; }
@@ -63,24 +68,40 @@ export default function VoiceTestPage() {
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
       const blob = new Blob([bytes], { type: "audio/mpeg" });
       const url = URL.createObjectURL(blob);
+      if (requestId !== playRequestIdRef.current) {
+        URL.revokeObjectURL(url);
+        return;
+      }
       blobUrlRef.current = url;
 
       const audio = new Audio(url);
       audioRef.current = audio;
-      audio.onended = () => setLoading(false);
-      audio.onerror = () => { setError("Playback error"); setLoading(false); };
+      audio.onended = () => {
+        if (requestId !== playRequestIdRef.current) return;
+        playLockedRef.current = false;
+        setLoading(false);
+      };
+      audio.onerror = () => {
+        if (requestId !== playRequestIdRef.current) return;
+        setError("Playback error");
+        playLockedRef.current = false;
+        setLoading(false);
+      };
       await audio.play();
 
       setLog((prev) => [{ voice, rate, ms: Date.now() - t0 }, ...prev].slice(0, 10));
     } catch (e) {
       setError((e as Error).message);
-    } finally {
+      playLockedRef.current = false;
       setLoading(false);
     }
   }
 
   function stop() {
+    playRequestIdRef.current += 1;
     if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+    playLockedRef.current = false;
+    setLoading(false);
   }
 
   return (
