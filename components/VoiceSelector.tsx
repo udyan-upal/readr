@@ -24,13 +24,23 @@ export default function VoiceSelector({ voices, value, onChange }: Props) {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm"
+      style={{
+        padding: "4px 8px",
+        borderRadius: 7,
+        border: "1.5px solid var(--border)",
+        background: "var(--surface)",
+        color: "var(--text-1)",
+        fontSize: 13,
+        fontFamily: "inherit",
+        cursor: "pointer",
+        maxWidth: 220,
+      }}
     >
       {grouped.map(([locale, list]) => (
         <optgroup key={locale} label={locale}>
           {list.map((v) => (
             <option key={v.shortName} value={v.shortName}>
-              {v.friendlyName} ({v.gender.charAt(0) || "?"})
+              {v.friendlyName}
             </option>
           ))}
         </optgroup>

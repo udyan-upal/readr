@@ -11,11 +11,30 @@ interface Props {
 
 export default function PdfOutline({ items, currentPage, onNavigate }: Props) {
   return (
-    <aside className="w-72 shrink-0 border-r border-gray-200 dark:border-gray-800 overflow-auto bg-white dark:bg-gray-900">
-      <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 border-b border-gray-200 dark:border-gray-800 sticky top-0 bg-white dark:bg-gray-900">
+    <aside
+      className="shrink-0 overflow-auto flex flex-col"
+      style={{
+        width: 248,
+        background: "var(--surface)",
+        borderRight: "1px solid var(--border)",
+      }}
+    >
+      <div
+        className="sticky top-0"
+        style={{
+          padding: "13px 14px 11px",
+          borderBottom: "1px solid var(--border-subtle)",
+          background: "var(--surface)",
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase" as const,
+          color: "var(--text-3)",
+        }}
+      >
         Contents
       </div>
-      <ul className="py-1 text-sm">
+      <ul className="py-2" style={{ fontSize: 13 }}>
         {items.map((it, i) => (
           <Node
             key={i}
@@ -48,38 +67,68 @@ function Node({
   return (
     <li>
       <div
-        className={`flex items-start gap-1 px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 ${
-          active ? "bg-blue-50 dark:bg-blue-950" : ""
-        }`}
-        style={{ paddingLeft: 8 + depth * 12 }}
+        className="flex items-center"
+        style={{
+          paddingLeft: 10 + depth * 14,
+          paddingRight: 10,
+          paddingTop: 3,
+          paddingBottom: 3,
+          borderRadius: 7,
+          margin: "1px 6px",
+          background: active ? "var(--accent-s)" : "transparent",
+          transition: "background 0.1s",
+        }}
+        onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLDivElement).style.background = "var(--bg)"; }}
+        onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
       >
         {hasChildren ? (
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
-            className="w-4 shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 leading-5 text-left"
-            aria-label={open ? "Collapse" : "Expand"}
+            style={{
+              width: 16, height: 20, display: "flex", alignItems: "center",
+              justifyContent: "center", flexShrink: 0, border: "none",
+              background: "transparent", cursor: "pointer",
+              color: "var(--text-3)", fontSize: 10,
+            }}
           >
             {open ? "▾" : "▸"}
           </button>
         ) : (
-          <span className="w-4 shrink-0" />
+          <span style={{ width: 16, flexShrink: 0 }} />
         )}
+
         <button
           type="button"
           onClick={() => item.pageNumber && onNavigate(item.pageNumber)}
           disabled={!item.pageNumber}
-          className={`flex-1 text-left leading-5 truncate ${
-            active ? "font-semibold text-blue-700 dark:text-blue-300" : ""
-          } ${!item.pageNumber ? "opacity-60 cursor-default" : ""}`}
+          style={{
+            flex: 1,
+            textAlign: "left",
+            lineHeight: "20px",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            border: "none",
+            background: "transparent",
+            cursor: item.pageNumber ? "pointer" : "default",
+            color: active ? "var(--accent)" : "var(--text-2)",
+            fontWeight: active ? 600 : 400,
+            opacity: !item.pageNumber ? 0.5 : 1,
+            padding: "0 4px",
+          }}
           title={item.title}
         >
           {item.title}
         </button>
+
         {item.pageNumber && (
-          <span className="text-xs text-gray-400 shrink-0">{item.pageNumber}</span>
+          <span style={{ fontSize: 11, color: "var(--text-3)", flexShrink: 0 }}>
+            {item.pageNumber}
+          </span>
         )}
       </div>
+
       {hasChildren && open && (
         <ul>
           {item.items.map((ch, i) => (

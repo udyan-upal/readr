@@ -264,8 +264,6 @@ export default function Home() {
       currentPdfPathRef.current = null;
       setCurrentPdfPath(null);
       currentPdfNameRef.current = f.name;
-      const slug = encodeURIComponent(f.name.replace(/\.pdf$/i, ""));
-      window.history.replaceState(null, "", `/read/${slug}`);
       setFile(f);
 
       if (isSignedIn) {
@@ -278,6 +276,7 @@ export default function Home() {
             if (d.path) {
               currentPdfPathRef.current = d.path;
               setCurrentPdfPath(d.path);
+              window.history.replaceState(null, "", `/read/${encodeURIComponent(d.path)}`);
             }
             setUploadStatus("done");
             refreshSavedList();
@@ -302,8 +301,7 @@ export default function Home() {
         currentPdfPathRef.current = pdf.path;
         setCurrentPdfPath(pdf.path);
         currentPdfNameRef.current = pdf.name;
-        const slug = encodeURIComponent(pdf.name.replace(/\.pdf$/i, ""));
-        window.history.replaceState(null, "", `/read/${slug}`);
+        window.history.replaceState(null, "", `/read/${encodeURIComponent(pdf.path)}`);
         setFile(f);
       } catch { /* ignore */ }
     },
@@ -325,8 +323,7 @@ export default function Home() {
         currentPdfPathRef.current = pdf.path;
         setCurrentPdfPath(pdf.path);
         currentPdfNameRef.current = pdf.name;
-        const slug = encodeURIComponent(pdf.name.replace(/\.pdf$/i, ""));
-        window.history.replaceState(null, "", `/read/${slug}`);
+        window.history.replaceState(null, "", `/read/${encodeURIComponent(pdf.path)}`);
         setFile(f);
       } catch { /* ignore */ }
     },
@@ -505,62 +502,115 @@ export default function Home() {
 
   if (!isLoaded) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-400">Loading…</div>
+      <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
+        <div style={{ width: 28, height: 28, border: "2.5px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </main>
     );
   }
 
   if (!isSignedIn) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center p-6 gap-6">
-        <h1 className="text-3xl font-bold">PDF Read Aloud</h1>
-        <p className="text-gray-500">Word-synced narration using Microsoft Edge neural voices</p>
-        <p className="text-sm text-gray-400">Sign in to upload and save your PDFs</p>
-        <SignInButton mode="modal">
-          <button className="px-6 py-2 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700">
-            Sign In
-          </button>
-        </SignInButton>
+      <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--bg)", padding: "2rem" }}>
+        {/* Logo */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 24, maxWidth: 400, width: "100%" }}>
+          <img src="/readr-logo-nobg.png" alt="Readr" style={{ width: 64, height: 64, objectFit: "contain" }} />
+          <div style={{ textAlign: "center" }}>
+            <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.5px", color: "var(--text-1)", margin: "0 0 8px" }}>Readr</h1>
+            <p style={{ fontSize: 15, color: "var(--text-2)", lineHeight: 1.5, margin: 0 }}>
+              Word-synced narration with<br/>Microsoft Edge neural voices
+            </p>
+          </div>
+          <SignInButton mode="modal">
+            <button
+              style={{ width: "100%", padding: "11px 0", borderRadius: 10, border: "none", background: "var(--accent)", color: "#fff", fontWeight: 600, fontSize: 15, cursor: "pointer", boxShadow: "0 4px 14px rgba(91,94,255,0.35)", fontFamily: "inherit", transition: "background 0.15s" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--accent-h)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--accent)"; }}
+            >
+              Sign in to get started
+            </button>
+          </SignInButton>
+          <p style={{ fontSize: 12, color: "var(--text-3)", margin: 0 }}>Upload &amp; sync across sessions after sign-in</p>
+        </div>
       </main>
     );
   }
 
   if (!file) {
     return (
-      <main className="min-h-screen flex flex-col items-center p-6 pt-16">
-        <div className="absolute top-4 right-4"><UserButton /></div>
-        <h1 className="text-3xl font-bold mb-2">PDF Read Aloud</h1>
-        <p className="text-gray-500 mb-8">Word-synced narration using Microsoft Edge neural voices</p>
-        <PdfUploader onFile={handleFile} />
+      <main style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
+        {/* Header */}
+        <header style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)", padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 7, background: "var(--accent-s)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <img src="/readr-logo-nobg.png" alt="Readr" style={{ width: 18, height: 18, objectFit: "contain" }} />
+            </div>
+            <span style={{ fontWeight: 700, fontSize: 16, color: "var(--text-1)", letterSpacing: "-0.3px" }}>Readr</span>
+          </div>
+          <UserButton />
+        </header>
 
-        <div className="w-full max-w-xl mt-10">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400 mb-3">
-            Your saved PDFs
-          </h2>
-          {loadingSaved && <p className="text-sm text-gray-400">Loading…</p>}
-          {!loadingSaved && savedPdfs.length === 0 && (
-            <p className="text-sm text-gray-400">No saved PDFs yet.</p>
+        {/* Hero + upload */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "64px 24px 40px", maxWidth: 600, margin: "0 auto", width: "100%" }}>
+          <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.5px", color: "var(--text-1)", margin: "0 0 8px", textAlign: "center" }}>
+            Open a PDF to get started
+          </h1>
+          <p style={{ fontSize: 14, color: "var(--text-3)", margin: "0 0 36px", textAlign: "center" }}>
+            Drag &amp; drop or click below
+          </p>
+          <PdfUploader onFile={handleFile} />
+
+          {/* Library */}
+          {(loadingSaved || savedPdfs.length > 0) && (
+            <div style={{ width: "100%", marginTop: 48 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--text-3)" }}>
+                  Your Library
+                </span>
+                <div style={{ flex: 1, height: 1, background: "var(--border-subtle)" }} />
+              </div>
+
+              {loadingSaved ? (
+                <div style={{ fontSize: 13, color: "var(--text-3)", padding: "12px 0" }}>Loading…</div>
+              ) : (
+                <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+                  {savedPdfs.map((pdf) => (
+                    <li
+                      key={pdf.path}
+                      style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer", transition: "border-color 0.15s, box-shadow 0.15s" }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLLIElement).style.borderColor = "var(--accent)"; (e.currentTarget as HTMLLIElement).style.boxShadow = "0 0 0 3px var(--accent-s)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLLIElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLLIElement).style.boxShadow = "none"; }}
+                      onClick={() => void handleOpenSaved(pdf)}
+                    >
+                      <div style={{ width: 36, height: 36, borderRadius: 8, background: "var(--accent-s)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <svg width="16" height="18" viewBox="0 0 24 24" fill="none">
+                          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pdf.name}</div>
+                        {pdf.lastPage && (
+                          <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>Last read: page {pdf.lastPage}</div>
+                        )}
+                      </div>
+                      {pdf.lastPage != null && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); void handleResumeSaved(pdf); }}
+                          style={{ flexShrink: 0, padding: "6px 14px", borderRadius: 99, border: "none", background: "var(--accent)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "background 0.15s" }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--accent-h)"; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--accent)"; }}
+                        >
+                          Resume
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
-          <ul className="space-y-2">
-            {savedPdfs.map((pdf) => (
-              <li key={pdf.path} className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700">
-                <button type="button" onClick={() => void handleOpenSaved(pdf)} className="flex-1 text-left min-w-0">
-                  <span className="block truncate text-sm font-medium">{pdf.name}</span>
-                  {pdf.lastPage && <span className="text-xs text-gray-400">Last read: p.{pdf.lastPage}</span>}
-                </button>
-                {pdf.lastPage != null && (
-                  <button
-                    type="button"
-                    onClick={() => void handleResumeSaved(pdf)}
-                    className="shrink-0 px-3 py-1 rounded-full bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700"
-                  >
-                    ▶ Resume
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
         </div>
       </main>
     );
@@ -572,25 +622,37 @@ export default function Home() {
       : null;
 
   return (
-    <main className="h-screen flex flex-col">
-      <header className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 px-4 py-2">
-        <div className="flex items-center gap-3">
+    <main style={{ height: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
+      {/* Reader header */}
+      <header style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)", padding: "0 16px", height: 50, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        {/* Left: logo + toc toggle */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 26, height: 26, borderRadius: 6, background: "var(--accent-s)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <img src="/readr-logo-nobg.png" alt="Readr" style={{ width: 17, height: 17, objectFit: "contain" }} />
+          </div>
           {outline.length > 0 && (
             <button
               type="button"
               onClick={() => setOutlineOpen((o) => !o)}
-              className="text-sm px-2 py-1 rounded bg-gray-100 dark:bg-gray-800"
               aria-label="Toggle contents"
+              style={{ padding: "5px 9px", borderRadius: 7, border: "1.5px solid var(--border)", background: outlineOpen ? "var(--accent-s)" : "transparent", color: outlineOpen ? "var(--accent)" : "var(--text-2)", fontSize: 14, cursor: "pointer", lineHeight: 1, transition: "all 0.15s", fontFamily: "inherit" }}
             >
               ☰
             </button>
           )}
-          <div className="font-semibold">PDF Read Aloud</div>
         </div>
-        <div className="flex items-center gap-3">
-          {uploadStatus === "uploading" && <span className="text-xs text-gray-400">Saving…</span>}
-          {uploadStatus === "done" && <span className="text-xs text-green-600">Saved</span>}
-          {uploadStatus === "error" && <span className="text-xs text-red-500">Save failed</span>}
+
+        {/* Right: status + actions */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {uploadStatus === "uploading" && (
+            <span style={{ fontSize: 12, color: "var(--text-3)", display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--text-3)", display: "inline-block", animation: "pulse 1.2s ease infinite" }} />
+              Saving
+            </span>
+          )}
+          {uploadStatus === "done" && <span style={{ fontSize: 12, color: "#16A34A", fontWeight: 500 }}>Saved</span>}
+          {uploadStatus === "error" && <span style={{ fontSize: 12, color: "var(--danger)" }}>Save failed</span>}
+
           {currentPdfPath && (
             <button
               type="button"
@@ -599,20 +661,24 @@ export default function Home() {
               aria-label="Toggle notes"
               title="All notes"
             >
-              <FaNotesMedical size={16} />
+              <FaNotesMedical size={14} />
               {allNotes.length > 0 && <span className="notes-toggle-count">{allNotes.length}</span>}
             </button>
           )}
+
           <button
             type="button"
             onClick={() => { resetReader(); setFile(null); window.history.replaceState(null, "", "/"); }}
-            className="text-sm px-3 py-1 rounded bg-gray-100 dark:bg-gray-800"
+            style={{ padding: "5px 12px", borderRadius: 7, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-2)", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text-1)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text-2)"; }}
           >
             New PDF
           </button>
           <UserButton />
         </div>
       </header>
+
       <div className="flex-1 min-h-0 flex">
         {outlineOpen && outline.length > 0 && (
           <PdfOutline items={outline} currentPage={currentPage} onNavigate={handlePageChange} />

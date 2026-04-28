@@ -14,20 +14,16 @@ export default function PdfUploader({ onFile }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const validate = useCallback((file: File): string | null => {
-    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf"))
       return "Only PDF files are supported";
-    }
-    if (file.size > MAX_SIZE) return "File exceeds 20MB limit";
+    if (file.size > MAX_SIZE) return "File exceeds 20 MB limit";
     return null;
   }, []);
 
   const handle = useCallback(
     (file: File) => {
       const err = validate(file);
-      if (err) {
-        setError(err);
-        return;
-      }
+      if (err) { setError(err); return; }
       setError(null);
       onFile(file);
     },
@@ -35,43 +31,75 @@ export default function PdfUploader({ onFile }: Props) {
   );
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
+    <div className="w-full max-w-lg mx-auto">
       <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragging(false);
-          const f = e.dataTransfer.files[0];
-          if (f) handle(f);
-        }}
+        onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) handle(f); }}
         onClick={() => inputRef.current?.click()}
-        className={`cursor-pointer rounded-xl border-2 border-dashed p-12 text-center transition-colors ${
-          dragging
-            ? "border-blue-500 bg-blue-50 dark:bg-blue-950"
-            : "border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500"
-        }`}
+        className="group cursor-pointer"
+        style={{
+          borderRadius: 16,
+          border: `2px dashed ${dragging ? "var(--accent)" : "var(--border)"}`,
+          background: dragging ? "var(--accent-s)" : "var(--surface)",
+          padding: "48px 32px",
+          textAlign: "center",
+          transition: "border-color 0.2s, background 0.2s, box-shadow 0.2s",
+          boxShadow: dragging ? "0 0 0 4px var(--accent-s)" : "var(--shadow-sm)",
+        }}
+        onMouseEnter={(e) => {
+          if (!dragging) (e.currentTarget as HTMLDivElement).style.borderColor = "var(--accent)";
+        }}
+        onMouseLeave={(e) => {
+          if (!dragging) (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)";
+        }}
       >
-        <div className="text-4xl mb-2">📄</div>
-        <div className="font-medium">Drop PDF here or click to browse</div>
-        <div className="text-sm text-gray-500 mt-1">Max 20MB · PDF only</div>
+        {/* Icon */}
+        <div
+          className="mx-auto mb-4 flex items-center justify-center"
+          style={{
+            width: 56, height: 56, borderRadius: 14,
+            background: dragging ? "var(--accent)" : "var(--accent-s)",
+            transition: "background 0.2s",
+          }}
+        >
+          <svg width="26" height="26" fill="none" viewBox="0 0 24 24">
+            <path
+              d="M12 16V8m0 0-3 3m3-3 3 3"
+              stroke={dragging ? "#fff" : "var(--accent)"}
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            />
+            <rect
+              x="3" y="3" width="18" height="18" rx="4"
+              stroke={dragging ? "#fff" : "var(--accent)"}
+              strokeWidth="1.5" strokeDasharray="3 2"
+            />
+          </svg>
+        </div>
+
+        <p style={{ fontWeight: 600, fontSize: 15, color: "var(--text-1)", marginBottom: 6 }}>
+          {dragging ? "Release to open" : "Drop a PDF here, or click to browse"}
+        </p>
+        <p style={{ fontSize: 13, color: "var(--text-3)" }}>
+          PDF only · max 20 MB
+        </p>
+
         <input
           ref={inputRef}
           type="file"
           accept="application/pdf,.pdf"
           className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) handle(f);
-            e.target.value = "";
-          }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handle(f); e.target.value = ""; }}
         />
       </div>
+
       {error && (
-        <div className="mt-3 text-sm text-red-600 dark:text-red-400 text-center">{error}</div>
+        <p
+          className="mt-3 text-center text-sm"
+          style={{ color: "var(--danger)" }}
+        >
+          {error}
+        </p>
       )}
     </div>
   );
