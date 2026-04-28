@@ -90,6 +90,17 @@ export default function Home() {
   const [highlightNoteId, setHighlightNoteId] = useState<string | null>(null);
   const [currentPdfPath, setCurrentPdfPath] = useState<string | null>(null);
 
+  // Read restore path from URL on mount (e.g. /read/user_xxx%2Ffile.pdf)
+  const [restorePath] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const p = window.location.pathname;
+    if (!p.startsWith("/read/")) return null;
+    const raw = p.slice("/read/".length);
+    try { return decodeURIComponent(raw); } catch { return raw; }
+  });
+  const didRestoreRef = useRef(false);
+  const restoreWordIndexRef = useRef(0); // word index to start from after reload restore
+
   const tts = useTtsPlayer();
   const pendingAutoPageRef = useRef<number | null>(null);
   const handledEndedCountRef = useRef(0);
@@ -232,6 +243,7 @@ export default function Home() {
   const handlePageChange = useCallback(
     (n: number) => {
       pendingAutoPageRef.current = null;
+      restoreWordIndexRef.current = 0;
       tts.stop();
       setPageData(pageCache[n] ?? null);
       setCurrentPage(n);
@@ -242,6 +254,7 @@ export default function Home() {
   const resetReader = useCallback(() => {
     pendingAutoPageRef.current = null;
     pendingResumeRef.current = null;
+    restoreWordIndexRef.current = 0;
     prefetchKeyRef.current = "";
     handledEndedCountRef.current = 0;
     lastWordIndexRef.current = 0;
@@ -330,10 +343,30 @@ export default function Home() {
     [resetReader],
   );
 
+  // Restore session when reloading a /read/:path URL.
+  // Use handleOpenSaved (not Resume) — autoplay is blocked by browser after reload.
+  // Store word index so user's manual Play starts from the right position.
+  useEffect(() => {
+    if (!restorePath || didRestoreRef.current) return;
+    if (!isSignedIn || loadingSaved) return;
+    const pdf = savedPdfs.find((p) => p.path === restorePath);
+    if (!pdf) return;
+    didRestoreRef.current = true;
+    restoreWordIndexRef.current = pdf.wordIndex ?? 0;
+    void handleOpenSaved(pdf);
+  }, [restorePath, isSignedIn, loadingSaved, savedPdfs, handleOpenSaved]);
+
   const onPlay = useCallback(() => {
     if (!pageData || !pageData.text.trim()) return;
     if (tts.alignedWords.length > 0) { tts.resume(); return; }
-    void tts.play({ text: pageData.text, voice, rate, words: pageData.words });
+    const startWordIndex = restoreWordIndexRef.current;
+    restoreWordIndexRef.current = 0;
+    if (startWordIndex > 0) {
+      const text = pageData.words.slice(startWordIndex).map((w) => w.text).join(" ").trim();
+      void tts.play({ text: text || pageData.text, voice, rate, words: pageData.words, startWordIndex });
+    } else {
+      void tts.play({ text: pageData.text, voice, rate, words: pageData.words });
+    }
   }, [pageData, voice, rate, tts]);
 
   // Restart from current word when voice/rate changes mid-playback

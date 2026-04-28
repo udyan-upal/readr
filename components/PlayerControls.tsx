@@ -21,11 +21,9 @@ interface Props {
 
 const RATES = [
   { label: "0.5×", value: "-50%" },
-  { label: "0.75×", value: "-25%" },
-  { label: "1×", value: "+0%" },
-  { label: "1.25×", value: "+25%" },
+  { label: "1×",   value: "+0%" },
   { label: "1.5×", value: "+50%" },
-  { label: "2×", value: "+100%" },
+  { label: "2×",   value: "+100%" },
 ];
 
 const btnBase: React.CSSProperties = {
@@ -136,15 +134,30 @@ export default function PlayerControls({
         {/* RIGHT — Speed */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
           <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--text-3)" }}>Speed</span>
-          <select
-            value={rate}
-            onChange={(e) => onRateChange(e.target.value)}
-            style={{ padding: "4px 8px", borderRadius: 7, border: "1.5px solid var(--border)", background: "var(--surface)", color: "var(--text-1)", fontSize: 13, fontFamily: "inherit", cursor: "pointer" }}
-          >
-            {RATES.map((r) => (
-              <option key={r.value} value={r.value}>{r.label}</option>
+          <div style={{ display: "flex", border: "1.5px solid var(--border)", borderRadius: 8, overflow: "hidden", background: "var(--bg)" }}>
+            {RATES.map((r, i) => (
+              <button
+                key={r.value}
+                type="button"
+                onClick={() => onRateChange(r.value)}
+                style={{
+                  padding: "4px 9px",
+                  border: "none",
+                  borderRight: i < RATES.length - 1 ? "1px solid var(--border)" : "none",
+                  background: rate === r.value ? "var(--accent)" : "transparent",
+                  color: rate === r.value ? "#fff" : "var(--text-2)",
+                  fontSize: 12,
+                  fontWeight: rate === r.value ? 600 : 400,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  transition: "background 0.15s, color 0.15s",
+                  minWidth: 36,
+                }}
+              >
+                {r.label}
+              </button>
             ))}
-          </select>
+          </div>
         </div>
       </div>
 
