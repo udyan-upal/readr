@@ -41,42 +41,41 @@ export default function PlayerControls({
   onPlay, onPause, onStop,
   progress, error, onRetry,
 }: Props) {
+  const selectedVoice = READER_VOICES.find((v) => v.value === voice)?.label ?? "Voice";
+  const selectedRate = RATES.find((r) => r.value === rate)?.label ?? "1×";
+
   return (
-    <div style={{ borderTop: "1px solid var(--border)", background: "var(--surface)", padding: "8px 20px 10px", flexShrink: 0 }}>
+    <div style={{ borderTop: "1px solid var(--border)", background: "linear-gradient(180deg, rgba(255,255,255,0.92), var(--surface))", padding: "8px 20px 10px", flexShrink: 0, boxShadow: "0 -18px 45px rgba(24,24,40,0.08)" }}>
       {/* Progress bar */}
       <div style={{ height: 3, background: "var(--border)", borderRadius: 99, overflow: "hidden", marginBottom: 10 }}>
         <div style={{ height: "100%", width: `${Math.round(progress * 100)}%`, background: "linear-gradient(90deg, var(--accent), var(--accent-h))", borderRadius: 99, transition: "width 150ms linear" }} />
       </div>
 
       {/* Three-column layout: left controls | center transport | right controls */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 12 }}>
+      <div className="player-controls-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)", alignItems: "center", gap: 12 }}>
 
         {/* LEFT — Voice */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--text-3)", whiteSpace: "nowrap" }}>Voice</span>
-          <div style={{ display: "flex", border: "1.5px solid var(--border)", borderRadius: 8, overflow: "hidden", background: "var(--bg)" }}>
-            {READER_VOICES.map((v, i) => (
+        <div className="control-card voice-card">
+          <div className="control-card-head">
+            <span className="control-kicker">Voice</span>
+            <span className="control-value">{selectedVoice}</span>
+          </div>
+          <div className="voice-chip-row" role="group" aria-label="Voice">
+            {READER_VOICES.map((v) => {
+              const active = voice === v.value;
+              return (
               <button
                 key={v.value}
                 type="button"
                 onClick={() => onVoiceChange(v.value)}
-                style={{
-                  padding: "4px 10px",
-                  border: "none",
-                  borderRight: i < READER_VOICES.length - 1 ? "1px solid var(--border)" : "none",
-                  background: voice === v.value ? "var(--accent)" : "transparent",
-                  color: voice === v.value ? "#fff" : "var(--text-2)",
-                  fontSize: 12,
-                  fontWeight: voice === v.value ? 600 : 400,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  transition: "background 0.15s, color 0.15s",
-                  minWidth: 40,
-                }}
+                className={`voice-chip${active ? " is-active" : ""}`}
+                aria-pressed={active}
               >
-                {v.label}
+                <span className="voice-dot">{v.label[0]}</span>
+                <span>{v.label}</span>
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -157,31 +156,26 @@ export default function PlayerControls({
         </div>
 
         {/* RIGHT — Speed */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
-          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--text-3)" }}>Speed</span>
-          <div style={{ display: "flex", border: "1.5px solid var(--border)", borderRadius: 8, overflow: "hidden", background: "var(--bg)" }}>
-            {RATES.map((r, i) => (
+        <div className="control-card speed-card">
+          <div className="control-card-head">
+            <span className="control-kicker">Speed</span>
+            <span className="control-value speed-value">{selectedRate}</span>
+          </div>
+          <div className="speed-rail" role="group" aria-label="Speed">
+            {RATES.map((r) => {
+              const active = rate === r.value;
+              return (
               <button
                 key={r.value}
                 type="button"
                 onClick={() => onRateChange(r.value)}
-                style={{
-                  padding: "4px 9px",
-                  border: "none",
-                  borderRight: i < RATES.length - 1 ? "1px solid var(--border)" : "none",
-                  background: rate === r.value ? "var(--accent)" : "transparent",
-                  color: rate === r.value ? "#fff" : "var(--text-2)",
-                  fontSize: 12,
-                  fontWeight: rate === r.value ? 600 : 400,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  transition: "background 0.15s, color 0.15s",
-                  minWidth: 36,
-                }}
+                className={`speed-chip${active ? " is-active" : ""}`}
+                aria-pressed={active}
               >
                 {r.label}
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -201,7 +195,143 @@ export default function PlayerControls({
         </div>
       )}
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .control-card {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+          padding: 7px;
+          border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+          border-radius: 16px;
+          background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(245,246,255,0.72));
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 10px 24px rgba(40,40,80,0.08);
+        }
+
+        .speed-card { justify-content: flex-end; }
+
+        .control-card-head {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          min-width: 56px;
+        }
+
+        .speed-card .control-card-head { align-items: flex-end; }
+
+        .control-kicker {
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: var(--text-3);
+          line-height: 1;
+        }
+
+        .control-value {
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+          color: var(--text-1);
+          line-height: 1.25;
+          white-space: nowrap;
+        }
+
+        .speed-value { color: var(--accent); }
+
+        .voice-chip-row,
+        .speed-rail {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          min-width: 0;
+          padding: 4px;
+          border-radius: 12px;
+          background: color-mix(in srgb, var(--bg) 82%, white);
+          border: 1px solid var(--border-subtle);
+        }
+
+        .voice-chip,
+        .speed-chip {
+          border: 0;
+          cursor: pointer;
+          font-family: inherit;
+          border-radius: 10px;
+          color: var(--text-2);
+          background: transparent;
+          transition: background 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s;
+        }
+
+        .voice-chip {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 8px 4px 4px;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .voice-dot {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          background: var(--surface);
+          color: var(--text-3);
+          font-size: 11px;
+          font-weight: 800;
+          box-shadow: inset 0 0 0 1px var(--border-subtle);
+        }
+
+        .speed-chip {
+          min-width: 42px;
+          padding: 7px 9px;
+          font-size: 12px;
+          font-weight: 800;
+        }
+
+        .voice-chip:hover,
+        .speed-chip:hover {
+          color: var(--text-1);
+          background: rgba(59,59,183,0.07);
+        }
+
+        .voice-chip.is-active,
+        .speed-chip.is-active {
+          color: #fff;
+          background: linear-gradient(135deg, var(--accent), var(--accent-h));
+          box-shadow: 0 8px 18px rgba(59,59,183,0.25);
+        }
+
+        .voice-chip.is-active .voice-dot {
+          background: rgba(255,255,255,0.2);
+          color: #fff;
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,0.24);
+        }
+
+        @media (max-width: 860px) {
+          .player-controls-grid {
+            grid-template-columns: 1fr;
+            justify-items: stretch;
+          }
+
+          .player-controls-grid > div:nth-child(2) {
+            justify-content: center;
+            order: -1;
+          }
+
+          .control-card,
+          .speed-card {
+            justify-content: space-between;
+          }
+
+          .speed-card .control-card-head { align-items: flex-start; }
+        }
+      `}</style>
     </div>
   );
 }
