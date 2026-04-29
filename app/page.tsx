@@ -101,6 +101,7 @@ export default function Home() {
   const restoreWordIndexRef = useRef(0); // word index to start from after reload restore
 
   const tts = useTtsPlayer();
+  const { setPlaybackRate } = tts;
   const pendingAutoPageRef = useRef<number | null>(null);
   const handledEndedCountRef = useRef(0);
   const handledGaplessCountRef = useRef(0);
@@ -359,10 +360,19 @@ export default function Home() {
     }
   }, [pageData, voice, rate, tts]);
 
-  // Restart from current word when voice/rate changes — works whether playing or paused
+  const handleRateChange = useCallback((nextRate: string) => {
+    setRate(nextRate);
+    setPlaybackRate(nextRate);
+  }, [setPlaybackRate]);
+
+  useEffect(() => {
+    setPlaybackRate(rate);
+  }, [rate, setPlaybackRate]);
+
+  // Restart from current word when voice changes. Speed changes use audio.playbackRate.
   useEffect(() => {
     const prev = prevPlaybackSettingsRef.current;
-    const changed = prev.voice !== voice || prev.rate !== rate;
+    const changed = prev.voice !== voice;
     prevPlaybackSettingsRef.current = { voice, rate };
     if (!changed) return;
     prefetchKeyRef.current = "";
@@ -382,11 +392,11 @@ export default function Home() {
     if (nextPage > numPages) return;
     const next = pageCache[nextPage];
     if (!next || !next.text.trim()) return;
-    const k = `${nextPage}|${voice}|${rate}|${next.text.length}|${next.text.slice(0, 32)}|${next.text.slice(-32)}`;
+    const k = `${nextPage}|${voice}|${next.text.length}|${next.text.slice(0, 32)}|${next.text.slice(-32)}`;
     if (prefetchKeyRef.current === k) return;
     prefetchKeyRef.current = k;
-    void tts.prefetch({ text: next.text, voice, rate, words: next.words });
-  }, [currentPage, numPages, pageCache, rate, tts, voice]);
+    void tts.prefetch({ text: next.text, voice, rate: rateRef.current, words: next.words });
+  }, [currentPage, numPages, pageCache, tts, voice]);
 
   // Auto-advance to next page when audio ends.
   // If gaplessEndedCount also incremented, the standby element already started playing —
@@ -746,7 +756,7 @@ export default function Home() {
         voice={voice}
         onVoiceChange={setVoice}
         rate={rate}
-        onRateChange={setRate}
+        onRateChange={handleRateChange}
         isPlaying={tts.isPlaying}
         isLoading={tts.isLoading}
         onPlay={onPlay}

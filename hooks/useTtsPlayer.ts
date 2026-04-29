@@ -36,14 +36,20 @@ interface State {
 }
 
 function keyOf(o: PlayOptions): string {
-  return `${o.voice}|${o.rate}|${o.startWordIndex ?? 0}|${o.text.length}|${o.text.slice(0, 64)}|${o.text.slice(-64)}`;
+  return `${o.voice}|${o.startWordIndex ?? 0}|${o.text.length}|${o.text.slice(0, 64)}|${o.text.slice(-64)}`;
+}
+
+function rateToPlaybackRate(rate: string): number {
+  const percent = Number.parseInt(rate.replace("%", ""), 10);
+  if (Number.isNaN(percent)) return 1;
+  return Math.max(0.25, Math.min(4, 1 + percent / 100));
 }
 
 async function fetchClip(opts: PlayOptions): Promise<FetchedClip> {
   const res = await fetch("/api/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: opts.text, voice: opts.voice, rate: opts.rate }),
+    body: JSON.stringify({ text: opts.text, voice: opts.voice, rate: "+0%" }),
   });
   if (!res.ok) {
     const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -77,6 +83,7 @@ export function useTtsPlayer() {
   const boundariesRef = useRef<WordBoundary[]>([]);
   const wordsRef = useRef<Word[]>([]);
   const lastReqRef = useRef<PlayOptions | null>(null);
+  const playbackRateRef = useRef(1);
 
   // Prefetch state
   const inFlightKeyRef = useRef<string | null>(null);
@@ -99,9 +106,17 @@ export function useTtsPlayer() {
       const a0 = new Audio();
       const a1 = new Audio();
       a0.preload = a1.preload = "auto";
+      a0.playbackRate = a1.playbackRate = playbackRateRef.current;
       audiosRef.current = [a0, a1];
     }
     return audiosRef.current;
+  }, []);
+
+  const setPlaybackRate = useCallback((rate: string) => {
+    const next = rateToPlaybackRate(rate);
+    playbackRateRef.current = next;
+    if (!audiosRef.current) return;
+    for (const audio of audiosRef.current) audio.playbackRate = next;
   }, []);
 
   const revokeSlot = useCallback((idx: 0 | 1) => {
@@ -166,6 +181,7 @@ export function useTtsPlayer() {
       }));
 
       const newActive = newIdx === 0 ? a0 : a1;
+      newActive.playbackRate = playbackRateRef.current;
       newActive.play().catch((err: Error) => {
         setState((s) => ({ ...s, isPlaying: false, error: err.message }));
       });
@@ -254,6 +270,7 @@ export function useTtsPlayer() {
       const url = URL.createObjectURL(clip.blob);
       urlsRef.current[idx] = url;
       active.src = url;
+      active.playbackRate = playbackRateRef.current;
 
       const aligned = buildAligned(opts, clip);
       boundariesRef.current = clip.boundaries;
@@ -339,6 +356,7 @@ export function useTtsPlayer() {
         const url = URL.createObjectURL(clip.blob);
         urlsRef.current[standbyIdx] = url;
         standby.src = url;
+        standby.playbackRate = playbackRateRef.current;
         standby.load(); // start buffering now
 
         queuedRef.current = { key: k, clip, opts };
@@ -371,5 +389,5 @@ export function useTtsPlayer() {
     [initAudios, revokeSlot],
   );
 
-  return { ...state, play, prefetch, updateWords, pause, resume, stop, retry };
+  return { ...state, play, prefetch, updateWords, pause, resume, stop, retry, setPlaybackRate };
 }
