@@ -23,4 +23,4 @@ export const VOICES: Voice[] = [
   { shortName: "ko-KR-SunHiNeural", friendlyName: "SunHi — 한국어", gender: "Female", locale: "ko-KR" },
 ];
 
-export const DEFAULT_VOICE = "en-US-AvaNeural";
+export const DEFAULT_VOICE = "en-US-EmmaNeural";

@@ -265,6 +265,9 @@ export default function Home() {
   const handleFile = useCallback(
     (f: File) => {
       resetReader();
+      setVoice(DEFAULT_VOICE);
+      setRate("+0%");
+      setPlaybackRate("+0%");
       currentPdfPathRef.current = null;
       setCurrentPdfPath(null);
       currentPdfNameRef.current = f.name;
@@ -289,7 +292,7 @@ export default function Home() {
           .finally(() => setTimeout(() => setUploadStatus("idle"), 3000));
       }
     },
-    [isSignedIn, resetReader, refreshSavedList],
+    [isSignedIn, resetReader, refreshSavedList, setPlaybackRate],
   );
 
   const handleOpenSaved = useCallback(
@@ -333,6 +336,18 @@ export default function Home() {
     },
     [resetReader],
   );
+
+  const handleBackHome = useCallback(() => {
+    if (isSignedIn) {
+      const wordIndex = tts.currentWordIndex >= 0 ? tts.currentWordIndex : lastWordIndexRef.current;
+      saveSession(currentPage, wordIndex, voice, rate);
+    }
+    resetReader();
+    currentPdfPathRef.current = null;
+    currentPdfNameRef.current = null;
+    setFile(null);
+    window.history.replaceState(null, "", "/");
+  }, [currentPage, isSignedIn, rate, resetReader, saveSession, tts.currentWordIndex, voice]);
 
   // Restore session when reloading a /read/:path URL.
   // Use handleOpenSaved (not Resume) — autoplay is blocked by browser after reload.
@@ -663,6 +678,17 @@ export default function Home() {
       <header style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)", padding: "0 16px", height: 50, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         {/* Left: logo + toc toggle */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            type="button"
+            onClick={handleBackHome}
+            aria-label="Back to home"
+            title="Back to home"
+            style={{ padding: "5px 10px", borderRadius: 8, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text-1)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text-2)"; }}
+          >
+            ← Home
+          </button>
           <div style={{ width: 26, height: 26, borderRadius: 6, background: "var(--accent-s)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <img src="/readr-logo-nobg.png" alt="Readr" style={{ width: 17, height: 17, objectFit: "contain" }} />
           </div>
@@ -704,7 +730,7 @@ export default function Home() {
 
           <button
             type="button"
-            onClick={() => { resetReader(); setFile(null); window.history.replaceState(null, "", "/"); }}
+            onClick={handleBackHome}
             style={{ padding: "5px 12px", borderRadius: 7, border: "1.5px solid var(--border)", background: "transparent", color: "var(--text-2)", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--bg)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text-1)"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text-2)"; }}
