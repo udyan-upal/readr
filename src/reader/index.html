@@ -18,7 +18,7 @@
       <a id="original-url" href="#" target="_blank" rel="noopener noreferrer"></a>
     </div>
     <div id="toolbar-right">
-      <button class="toolbar-btn" id="btn-highlights">Highlights</button>
+      <button class="toolbar-btn" id="btn-highlights">Annotations</button>
       <button class="toolbar-btn" id="btn-settings">Settings</button>
     </div>
   </nav>
@@ -43,8 +43,32 @@
     </div>
   </main>
 
-  <!-- Floating save highlight button -->
-  <button id="highlight-save-btn">Save Highlight</button>
+  <!-- Floating annotation toolbar (appears on text selection) -->
+  <div id="annotation-toolbar">
+    <button class="annotation-tool-btn" data-type="highlight">
+      <span class="tool-swatch"></span>Highlight
+    </button>
+    <div class="tool-divider"></div>
+    <button class="annotation-tool-btn" data-type="strikethrough">
+      <span class="tool-swatch">S̶</span>Strike
+    </button>
+    <div class="tool-divider"></div>
+    <button class="annotation-tool-btn" data-type="comment">
+      <span class="tool-swatch"></span>Comment
+    </button>
+  </div>
+
+  <!-- Comment input popup -->
+  <div id="comment-popup">
+    <textarea id="comment-input" placeholder="Add a note…" rows="3"></textarea>
+    <div class="comment-actions">
+      <button class="comment-btn" id="comment-cancel">Cancel</button>
+      <button class="comment-btn primary" id="comment-save">Save</button>
+    </div>
+  </div>
+
+  <!-- Comment hover tooltip -->
+  <div id="annotation-tooltip"></div>
 
   <!-- Settings panel -->
   <div class="side-panel" id="settings-panel">
@@ -81,10 +105,10 @@
     </div>
   </div>
 
-  <!-- Highlights panel -->
+  <!-- Annotations panel -->
   <div class="side-panel" id="highlights-panel">
     <div class="panel-header">
-      <span class="panel-title">Highlights</span>
+      <span class="panel-title">Annotations</span>
       <button class="panel-close" id="close-highlights">✕</button>
     </div>
     <div id="highlights-list"></div>
