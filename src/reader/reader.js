@@ -14,8 +14,10 @@ let readAloudState = {
   currentWordIndex: -1,
   doneUntilIndex: -1,
   boundaries: [],
+  alignedWords: [],
   audio: null,
   audioUrl: null,
+  animationFrameId: null,
   prefetchedClip: null,
   prefetchPromise: null,
   prefetchChunkIndex: -1,
@@ -413,6 +415,7 @@ function updateReadAloudUI() {
 }
 
 function setCurrentReadWord(index, scroll = true) {
+  if (index === readAloudState.currentWordIndex) return;
   const previous = readAloudState.words[readAloudState.currentWordIndex]?.el;
   previous?.classList.remove("read-word-current");
 
@@ -460,27 +463,88 @@ function refreshReadHighlight() {
   if (current) positionReadHighlight(current);
 }
 
-function wordIndexFromBoundary(chunk, charIndex) {
-  let localIndex = 0;
-  for (let i = 0; i < chunk.charStarts.length; i++) {
-    if (chunk.charStarts[i] <= charIndex) localIndex = i;
-    else break;
+function normalizeTtsWord(text) {
+  return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function alignReadBoundaries(chunk, boundaries) {
+  const rendered = readAloudState.words
+    .slice(chunk.wordStart, chunk.wordEnd + 1)
+    .map((word, index) => ({ index: chunk.wordStart + index, text: word.text }));
+  const aligned = [];
+  let ri = 0;
+  let bi = 0;
+
+  while (ri < rendered.length && bi < boundaries.length) {
+    const renderedText = normalizeTtsWord(rendered[ri].text);
+    const boundaryText = normalizeTtsWord(boundaries[bi].text || "");
+
+    if (!renderedText) { ri++; continue; }
+    if (!boundaryText) { bi++; continue; }
+
+    if (renderedText === boundaryText) {
+      aligned.push({ index: rendered[ri].index, offsetMs: boundaries[bi].offsetMs || 0 });
+      ri++;
+      bi++;
+    } else if (boundaryText.startsWith(renderedText)) {
+      const group = [];
+      let acc = "";
+      while (ri < rendered.length && acc.length < boundaryText.length) {
+        acc += normalizeTtsWord(rendered[ri].text);
+        group.push(rendered[ri].index);
+        ri++;
+      }
+      const duration = boundaries[bi].durationMs || 0;
+      const perWord = duration / Math.max(group.length, 1);
+      group.forEach((index, offset) => {
+        aligned.push({ index, offsetMs: (boundaries[bi].offsetMs || 0) + offset * perWord });
+      });
+      bi++;
+    } else if (renderedText.startsWith(boundaryText)) {
+      aligned.push({ index: rendered[ri].index, offsetMs: boundaries[bi].offsetMs || 0 });
+      let acc = "";
+      while (bi < boundaries.length && acc.length < renderedText.length) {
+        acc += normalizeTtsWord(boundaries[bi].text || "");
+        bi++;
+      }
+      ri++;
+    } else {
+      bi++;
+    }
   }
-  return chunk.wordStart + localIndex;
+
+  return aligned.sort((a, b) => a.offsetMs - b.offsetMs);
 }
 
 function wordIndexFromTime(chunk, ms) {
-  const boundaries = readAloudState.boundaries;
-  let boundaryIndex = -1;
-  for (let i = 0; i < boundaries.length; i++) {
-    if ((boundaries[i].offsetMs || 0) <= ms) boundaryIndex = i;
+  const aligned = readAloudState.alignedWords;
+  if (!aligned.length) return chunk.wordStart;
+  let wordIndex = chunk.wordStart;
+  for (let i = 0; i < aligned.length; i++) {
+    if (aligned[i].offsetMs <= ms) wordIndex = aligned[i].index;
     else break;
   }
-  if (boundaryIndex >= 0) return Math.min(chunk.wordEnd, chunk.wordStart + boundaryIndex);
-  return chunk.wordStart;
+  return Math.min(chunk.wordEnd, Math.max(chunk.wordStart, wordIndex));
+}
+
+function startReadTicker(sessionId, chunk) {
+  if (readAloudState.animationFrameId) cancelAnimationFrame(readAloudState.animationFrameId);
+  const tick = () => {
+    if (sessionId !== readAloudState.sessionId || !readAloudState.audio || !readAloudState.isPlaying) {
+      readAloudState.animationFrameId = null;
+      return;
+    }
+    setCurrentReadWord(wordIndexFromTime(chunk, readAloudState.audio.currentTime * 1000));
+    readAloudState.animationFrameId = requestAnimationFrame(tick);
+  };
+  readAloudState.animationFrameId = requestAnimationFrame(tick);
 }
 
 function clearReadAudio() {
+  if (readAloudState.animationFrameId) {
+    cancelAnimationFrame(readAloudState.animationFrameId);
+    readAloudState.animationFrameId = null;
+  }
   const audio = readAloudState.audio;
   if (audio) {
     audio.pause();
@@ -495,6 +559,7 @@ function clearReadAudio() {
   readAloudState.audio = null;
   readAloudState.audioUrl = null;
   readAloudState.boundaries = [];
+  readAloudState.alignedWords = [];
 }
 
 function clearPrefetchedReadClip() {
@@ -564,13 +629,14 @@ async function speakReadChunk(chunkIndex) {
     readAloudState.audio = audio;
     readAloudState.audioUrl = clip.url;
     readAloudState.boundaries = clip.boundaries;
+    readAloudState.alignedWords = alignReadBoundaries(chunk, clip.boundaries);
 
-    audio.ontimeupdate = () => {
-      if (sessionId !== readAloudState.sessionId) return;
-      setCurrentReadWord(wordIndexFromTime(chunk, audio.currentTime * 1000));
-    };
     audio.onended = () => {
       if (sessionId !== readAloudState.sessionId) return;
+      if (readAloudState.animationFrameId) {
+        cancelAnimationFrame(readAloudState.animationFrameId);
+        readAloudState.animationFrameId = null;
+      }
       speakReadChunk(chunkIndex + 1);
     };
     audio.onerror = () => {
@@ -588,6 +654,7 @@ async function speakReadChunk(chunkIndex) {
     updateReadAloudUI();
     prefetchReadChunk(chunkIndex + 1, sessionId);
     await audio.play();
+    startReadTicker(sessionId, chunk);
   } catch (err) {
     if (sessionId !== readAloudState.sessionId) return;
     clearReadAudio();
@@ -634,6 +701,7 @@ async function resumeReadAloud() {
   await readAloudState.audio.play();
   readAloudState.isPlaying = true;
   readAloudState.isPaused = false;
+  startReadTicker(readAloudState.sessionId, readAloudState.chunks[readAloudState.currentChunkIndex]);
   updateReadAloudUI();
 }
 
