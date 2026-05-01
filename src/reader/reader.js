@@ -50,6 +50,7 @@ const annotationToolbar = document.getElementById("annotation-toolbar");
 const commentPopup = document.getElementById("comment-popup");
 const commentInput = document.getElementById("comment-input");
 const annotationTooltip = document.getElementById("annotation-tooltip");
+const readHighlightPill = document.getElementById("read-highlight-pill");
 const readPlayer = document.getElementById("read-player");
 const readProgressFill = document.getElementById("read-progress-fill");
 const readPlayPause = document.getElementById("read-play-pause");
@@ -376,9 +377,24 @@ function setCurrentReadWord(index, scroll = true) {
   const current = readAloudState.words[index]?.el;
   if (current) {
     current.classList.add("read-word-current");
+    positionReadHighlight(current);
     if (scroll) current.scrollIntoView({ behavior: "smooth", block: "center" });
   }
   updateReadAloudUI();
+}
+
+function positionReadHighlight(wordEl) {
+  const rect = wordEl.getBoundingClientRect();
+  readHighlightPill.style.left = `${rect.left + window.scrollX - 2}px`;
+  readHighlightPill.style.top = `${rect.top + window.scrollY + 1}px`;
+  readHighlightPill.style.width = `${rect.width + 4}px`;
+  readHighlightPill.style.height = `${rect.height - 2}px`;
+  readHighlightPill.classList.add("visible");
+}
+
+function refreshReadHighlight() {
+  const current = readAloudState.words[readAloudState.currentWordIndex]?.el;
+  if (current) positionReadHighlight(current);
 }
 
 function wordIndexFromBoundary(chunk, charIndex) {
@@ -517,6 +533,7 @@ function stopReadAloud({ keepPlayerOpen = false } = {}) {
   readAloudState.sessionId += 1;
   clearReadAudio();
   readAloudState.words[readAloudState.currentWordIndex]?.el?.classList.remove("read-word-current");
+  readHighlightPill.classList.remove("visible");
   readAloudState.isLoading = false;
   readAloudState.isPlaying = false;
   readAloudState.isPaused = false;
@@ -564,6 +581,7 @@ readRateGroup.addEventListener("click", async (e) => {
 });
 
 window.addEventListener("beforeunload", () => stopReadAloud({ keepPlayerOpen: false }));
+window.addEventListener("resize", refreshReadHighlight);
 
 // ─────────────────────────────────────────
 // Annotation system

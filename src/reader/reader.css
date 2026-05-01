@@ -209,16 +209,37 @@ body {
 #article-body figure { margin: 1.4em 0; }
 #article-body figcaption { font-size: 0.85em; color: var(--text-tertiary); margin-top: 8px; }
 
-.read-word-current {
-  background: rgba(99, 102, 241, 0.22);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.18);
+#read-highlight-pill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 80;
+  pointer-events: none;
+  opacity: 0;
   border-radius: 4px;
+  background: rgba(91, 94, 255, 0.18);
+  box-shadow: 0 0 0 1.5px rgba(91, 94, 255, 0.35);
+  mix-blend-mode: multiply;
+  transition:
+    left 160ms cubic-bezier(0.4, 0, 0.2, 1),
+    top 160ms cubic-bezier(0.4, 0, 0.2, 1),
+    width 160ms cubic-bezier(0.4, 0, 0.2, 1),
+    height 160ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 100ms linear;
+  will-change: left, top, width, height;
 }
 
-[data-theme="dark"] .read-word-current {
-  background: rgba(129, 140, 248, 0.28);
-  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.22);
+#read-highlight-pill.visible { opacity: 1; }
+
+[data-theme="dark"] #read-highlight-pill {
+  background: rgba(123, 127, 255, 0.22);
+  box-shadow: 0 0 0 1.5px rgba(155, 158, 255, 0.4);
+  mix-blend-mode: screen;
 }
+
+.read-word-current { border-radius: 4px; }
 
 /* Read aloud player */
 #read-player {
