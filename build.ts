@@ -1,6 +1,6 @@
-import { copyFile, mkdir, cp } from "fs/promises";
+import { copyFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
-import path from "path";
+import { spawnSync } from "child_process";
 
 const outdir = "dist";
 
@@ -45,9 +45,10 @@ async function build() {
   await copyFile("src/reader/reader.css", `${outdir}/reader/reader.css`);
   await copyFile("src/popup/popup.html", `${outdir}/popup/popup.html`);
 
-  // Copy icons
-  for (const icon of ["icon16.png", "icon48.png", "icon128.png"]) {
-    await copyFile(`icons/${icon}`, `${outdir}/icons/${icon}`);
+  // Resize brand logo into required icon sizes
+  const logo = "icons/image.png";
+  for (const size of [16, 48, 128]) {
+    spawnSync("sips", ["-z", String(size), String(size), logo, "--out", `${outdir}/icons/icon${size}.png`]);
   }
 
   console.log("Static files copied.");
