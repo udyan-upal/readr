@@ -7,6 +7,7 @@ let currentSettings = { theme: "light", font: "inter", size: "medium" };
 let summaryGenerating = false;
 let readAloudState = {
   words: [],
+  fullText: "",
   chunks: [],
   currentChunkIndex: 0,
   currentWordIndex: -1,
@@ -258,6 +259,7 @@ async function fetchEdgeTtsClip(chunk) {
 
 function prepareReadAloudWords() {
   readAloudState.words = [];
+  readAloudState.fullText = "";
   readAloudState.chunks = [];
   readAloudState.currentChunkIndex = 0;
   readAloudState.currentWordIndex = -1;
@@ -277,7 +279,10 @@ function prepareReadAloudWords() {
   for (const textNode of nodes) {
     const text = textNode.textContent;
     wordPattern.lastIndex = 0;
-    if (!wordPattern.test(text)) continue;
+    if (!wordPattern.test(text)) {
+      readAloudState.fullText += text;
+      continue;
+    }
     wordPattern.lastIndex = 0;
 
     const frag = document.createDocumentFragment();
@@ -285,17 +290,24 @@ function prepareReadAloudWords() {
     let match;
     while ((match = wordPattern.exec(text))) {
       if (match.index > lastIndex) {
-        frag.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+        const between = text.slice(lastIndex, match.index);
+        frag.appendChild(document.createTextNode(between));
+        readAloudState.fullText += between;
       }
       const span = document.createElement("span");
       span.className = "read-word";
       span.dataset.readIndex = String(readAloudState.words.length);
       span.textContent = match[0];
       frag.appendChild(span);
-      readAloudState.words.push({ text: match[0], el: span });
+      readAloudState.words.push({ text: match[0], el: span, charStart: readAloudState.fullText.length });
+      readAloudState.fullText += match[0];
       lastIndex = match.index + match[0].length;
     }
-    if (lastIndex < text.length) frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+    if (lastIndex < text.length) {
+      const tail = text.slice(lastIndex);
+      frag.appendChild(document.createTextNode(tail));
+      readAloudState.fullText += tail;
+    }
     textNode.replaceWith(frag);
   }
   updateReadAloudUI();
@@ -304,21 +316,36 @@ function prepareReadAloudWords() {
 function buildReadAloudChunks(startIndex) {
   const chunks = [];
   const maxChars = 1500;
-  let chunk = null;
+  const words = readAloudState.words;
+  const fullText = readAloudState.fullText;
+  let i = Math.max(0, startIndex);
 
-  for (let i = Math.max(0, startIndex); i < readAloudState.words.length; i++) {
-    const word = readAloudState.words[i].text;
-    if (!chunk) chunk = { text: "", wordStart: i, wordEnd: i, charStarts: [] };
-    const prefix = chunk.text ? " " : "";
-    if (chunk.text && chunk.text.length + prefix.length + word.length > maxChars) {
-      chunks.push(chunk);
-      chunk = { text: "", wordStart: i, wordEnd: i, charStarts: [] };
+  while (i < words.length) {
+    const wordStart = i;
+    const rawStartChar = words[wordStart].charStart;
+    let wordEnd = wordStart;
+
+    while (
+      wordEnd + 1 < words.length &&
+      words[wordEnd + 1].charStart - rawStartChar <= maxChars
+    ) {
+      wordEnd++;
     }
-    chunk.charStarts.push(chunk.text.length + (chunk.text ? 1 : 0));
-    chunk.text += `${chunk.text ? " " : ""}${word}`;
-    chunk.wordEnd = i;
+
+    const rawEndChar = wordEnd + 1 < words.length ? words[wordEnd + 1].charStart : fullText.length;
+    const rawText = fullText.slice(rawStartChar, rawEndChar);
+    const leadingTrim = rawText.length - rawText.trimStart().length;
+    const text = rawText.trim();
+    const startChar = rawStartChar + leadingTrim;
+
+    chunks.push({
+      text,
+      wordStart,
+      wordEnd,
+      charStarts: words.slice(wordStart, wordEnd + 1).map((word) => Math.max(0, word.charStart - startChar)),
+    });
+    i = wordEnd + 1;
   }
-  if (chunk?.text) chunks.push(chunk);
   return chunks;
 }
 
