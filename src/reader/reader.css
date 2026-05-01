@@ -396,10 +396,16 @@ body {
 }
 
 #summary-content {
-  font-size: 13px;
+  font-size: 18px;
   line-height: 1.8;
   color: var(--text-primary);
 }
+#summary-content.font-small  { font-size: 17px; }
+#summary-content.font-medium { font-size: 18px; }
+#summary-content.font-large  { font-size: 20px; }
+#summary-content.font-inter  { font-family: 'Inter', system-ui, sans-serif; }
+#summary-content.font-georgia { font-family: Georgia, 'Times New Roman', serif; }
+#summary-content.font-mono   { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
 
 #summary-text { white-space: pre-wrap; }
 

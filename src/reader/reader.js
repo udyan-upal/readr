@@ -47,6 +47,7 @@ const btnTldr = document.getElementById("btn-tldr");
 const settingsPanel = document.getElementById("settings-panel");
 const highlightsPanel = document.getElementById("highlights-panel");
 const summaryPanel = document.getElementById("summary-panel");
+const summaryContent = document.getElementById("summary-content");
 const closeSettings = document.getElementById("close-settings");
 const closeHighlights = document.getElementById("close-highlights");
 const highlightsList = document.getElementById("highlights-list");
@@ -137,6 +138,8 @@ function applySettings() {
   body.setAttribute("data-theme", currentSettings.theme);
   articleBody.className = "";
   articleBody.classList.add(`font-${currentSettings.font}`, `font-${currentSettings.size}`);
+  summaryContent.className = "";
+  summaryContent.classList.add(`font-${currentSettings.font}`, `font-${currentSettings.size}`);
 }
 
 function updateSettingsUI() {
