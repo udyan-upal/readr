@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FocusRead</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="reader.css" />
+</head>
+<body>
+  <div id="progress-bar"></div>
+
+  <nav id="toolbar">
+    <div id="toolbar-left">
+      <span id="site-name"></span>
+      <a id="original-url" href="#" target="_blank" rel="noopener noreferrer"></a>
+    </div>
+    <div id="toolbar-right">
+      <button class="toolbar-btn" id="btn-highlights">Highlights</button>
+      <button class="toolbar-btn" id="btn-settings">Settings</button>
+    </div>
+  </nav>
+
+  <main id="main">
+    <div id="loading-state">
+      <p>Loading article…</p>
+    </div>
+
+    <div id="article-container" style="display:none">
+      <div id="article-meta">
+        <span id="read-time"></span>
+        <span id="byline"></span>
+      </div>
+      <h1 id="article-title"></h1>
+      <div id="article-body"></div>
+    </div>
+
+    <div id="error-state" style="display:none">
+      <h2>Could not extract article</h2>
+      <p id="error-message"></p>
+    </div>
+  </main>
+
+  <!-- Floating save highlight button -->
+  <button id="highlight-save-btn">Save Highlight</button>
+
+  <!-- Settings panel -->
+  <div class="side-panel" id="settings-panel">
+    <div class="panel-header">
+      <span class="panel-title">Settings</span>
+      <button class="panel-close" id="close-settings">✕</button>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-label">Theme</div>
+      <div class="btn-group" id="theme-group">
+        <button class="option-btn" data-value="light">Light</button>
+        <button class="option-btn" data-value="dark">Dark</button>
+        <button class="option-btn" data-value="sepia">Sepia</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-label">Font</div>
+      <div class="btn-group" id="font-group">
+        <button class="option-btn" data-value="inter">Inter</button>
+        <button class="option-btn" data-value="georgia">Georgia</button>
+        <button class="option-btn" data-value="mono">Mono</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-label">Size</div>
+      <div class="btn-group" id="size-group">
+        <button class="option-btn" data-value="small">Small</button>
+        <button class="option-btn" data-value="medium">Medium</button>
+        <button class="option-btn" data-value="large">Large</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Highlights panel -->
+  <div class="side-panel" id="highlights-panel">
+    <div class="panel-header">
+      <span class="panel-title">Highlights</span>
+      <button class="panel-close" id="close-highlights">✕</button>
+    </div>
+    <div id="highlights-list"></div>
+  </div>
+
+  <script src="reader.js"></script>
+</body>
+</html>
