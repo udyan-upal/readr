@@ -22,6 +22,7 @@
       <button class="toolbar-btn" id="btn-tldr">tl;dr</button>
       <button class="toolbar-btn" id="btn-highlights">Annotations</button>
       <button class="toolbar-btn" id="btn-settings">Settings</button>
+      <button class="toolbar-btn" id="btn-chat">Chat</button>
     </div>
   </nav>
 
@@ -172,6 +173,23 @@
         <button class="option-btn" data-value="medium">Medium</button>
         <button class="option-btn" data-value="large">Large</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Chat panel -->
+  <div class="side-panel" id="chat-panel">
+    <div class="panel-header">
+      <span class="panel-title">Chat</span>
+      <button class="panel-close" id="close-chat">✕</button>
+    </div>
+    <div id="chat-body">
+      <div id="chat-messages">
+        <div class="chat-empty">Ask a short question about this article.</div>
+      </div>
+      <form id="chat-form">
+        <textarea id="chat-input" rows="3" placeholder="Ask about this article..."></textarea>
+        <button id="chat-send" type="submit">Send</button>
+      </form>
     </div>
   </div>
 

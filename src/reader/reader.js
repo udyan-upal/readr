@@ -5,6 +5,7 @@ const NVIDIA_API_KEY = __NVIDIA_API_KEY__;
 let currentArticle = null;
 let currentSettings = { theme: "light", font: "inter", size: "medium" };
 let summaryGenerating = false;
+let chatGenerating = false;
 let readAloudState = {
   words: [],
   fullText: "",
@@ -49,12 +50,15 @@ const btnRead = document.getElementById("btn-read");
 const btnHighlights = document.getElementById("btn-highlights");
 const btnSettings = document.getElementById("btn-settings");
 const btnTldr = document.getElementById("btn-tldr");
+const btnChat = document.getElementById("btn-chat");
 const settingsPanel = document.getElementById("settings-panel");
 const highlightsPanel = document.getElementById("highlights-panel");
 const summaryPanel = document.getElementById("summary-panel");
+const chatPanel = document.getElementById("chat-panel");
 const summaryContent = document.getElementById("summary-content");
 const closeSettings = document.getElementById("close-settings");
 const closeHighlights = document.getElementById("close-highlights");
+const closeChat = document.getElementById("close-chat");
 const highlightsList = document.getElementById("highlights-list");
 const annotationToolbar = document.getElementById("annotation-toolbar");
 const commentPopup = document.getElementById("comment-popup");
@@ -129,6 +133,7 @@ function renderArticle(article) {
   }
   titleEl.textContent = article.title || "";
   articleBody.innerHTML = article.content || "";
+  resetChat();
   articleBody.querySelectorAll("a").forEach((a) => {
     a.setAttribute("target", "_blank");
     a.setAttribute("rel", "noopener noreferrer");
@@ -188,6 +193,7 @@ const ALL_PANELS = [
   { panel: settingsPanel,  btn: btnSettings  },
   { panel: highlightsPanel, btn: btnHighlights },
   { panel: summaryPanel,   btn: btnTldr      },
+  { panel: chatPanel,      btn: btnChat      },
 ];
 
 function openPanel(panel, btnEl) {
@@ -225,8 +231,12 @@ btnTldr.addEventListener("click", () => {
     if (!summaryText.textContent) streamSummary();
   }
 });
+btnChat.addEventListener("click", () => {
+  chatPanel.classList.contains("open") ? closeAllPanels() : openPanel(chatPanel, btnChat);
+});
 closeSettings.addEventListener("click", closeAllPanels);
 closeHighlights.addEventListener("click", closeAllPanels);
+closeChat.addEventListener("click", closeAllPanels);
 
 btnInfo.addEventListener("click", (e) => {
   e.stopPropagation();
@@ -1014,6 +1024,93 @@ document.getElementById("close-summary").addEventListener("click", closeAllPanel
 document.getElementById("summary-regen").addEventListener("click", () => {
   if (summaryGenerating) return;
   streamSummary();
+});
+
+// ─────────────────────────────────────────
+// Chat — concise article Q&A
+// ─────────────────────────────────────────
+
+const chatMessages = document.getElementById("chat-messages");
+const chatForm = document.getElementById("chat-form");
+const chatInput = document.getElementById("chat-input");
+const chatSend = document.getElementById("chat-send");
+
+function resetChat() {
+  if (!chatMessages) return;
+  chatMessages.innerHTML = '<div class="chat-empty">Ask a short question about this article.</div>';
+}
+
+function appendChatMessage(role, text) {
+  chatMessages.querySelector(".chat-empty")?.remove();
+  const message = document.createElement("div");
+  message.className = `chat-message chat-${role}`;
+  message.textContent = text;
+  chatMessages.appendChild(message);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+  return message;
+}
+
+function submitChatQuestion() {
+  chatForm.requestSubmit();
+}
+
+chatInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" || e.shiftKey || e.isComposing) return;
+  e.preventDefault();
+  submitChatQuestion();
+});
+
+chatForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (chatGenerating || !currentArticle) return;
+  const question = chatInput.value.trim();
+  if (!question) return;
+
+  appendChatMessage("user", question);
+  chatInput.value = "";
+  chatGenerating = true;
+  chatSend.disabled = true;
+  const answerEl = appendChatMessage("assistant", "Thinking...");
+
+  const prompt =
+    `You are a concise reading assistant. Answer the user's question using only the article context. ` +
+    `Keep the answer short: 2-3 lines maximum. Treat article metadata as part of the context. ` +
+    `If the user asks who wrote the article, use the byline/author metadata when present. ` +
+    `If neither metadata nor article text contains the answer, say so briefly.\n\n` +
+    `Article title: ${currentArticle.title || "Untitled"}\n\n` +
+    `Author/byline: ${currentArticle.byline || "Unknown"}\n` +
+    `Site: ${currentArticle.siteName || "Unknown"}\n` +
+    `URL: ${currentArticle.url || "Unknown"}\n\n` +
+    `Article context:\n${(currentArticle.textContent || "").slice(0, 9000)}\n\n` +
+    `Question: ${question}`;
+
+  try {
+    const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${NVIDIA_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "meta/llama-4-maverick-17b-128e-instruct",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 120,
+        temperature: 0.35,
+        top_p: 0.9,
+        stream: false,
+      }),
+    });
+    if (!response.ok) throw new Error(`API error ${response.status}`);
+    const data = await response.json();
+    answerEl.textContent = data.choices?.[0]?.message?.content?.trim() || "No answer returned.";
+  } catch (err) {
+    answerEl.textContent = "Could not answer right now. Check the API key and try again.";
+  } finally {
+    chatGenerating = false;
+    chatSend.disabled = false;
+    chatInput.focus();
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
 });
 
 async function streamSummary() {
