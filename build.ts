@@ -16,6 +16,9 @@ async function build() {
   await ensureDir(`${outdir}/popup`);
   await ensureDir(`${outdir}/icons`);
 
+  const nvidiaKey = process.env.NVIDIA_API_KEY ?? "";
+  if (!nvidiaKey) console.warn("Warning: NVIDIA_API_KEY not set in .env.local");
+
   const results = await Bun.build({
     entrypoints: [
       "src/content/extractor.js",
@@ -27,6 +30,9 @@ async function build() {
     target: "browser",
     minify: false,
     splitting: false,
+    define: {
+      __NVIDIA_API_KEY__: JSON.stringify(nvidiaKey),
+    },
   });
 
   if (!results.success) {

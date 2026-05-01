@@ -18,6 +18,7 @@
       <a id="original-url" href="#" target="_blank" rel="noopener noreferrer"></a>
     </div>
     <div id="toolbar-right">
+      <button class="toolbar-btn" id="btn-tldr">tl;dr</button>
       <button class="toolbar-btn" id="btn-highlights">Annotations</button>
       <button class="toolbar-btn" id="btn-settings">Settings</button>
     </div>
@@ -43,7 +44,7 @@
     </div>
   </main>
 
-  <!-- Floating annotation toolbar (appears on text selection) -->
+  <!-- Floating annotation toolbar -->
   <div id="annotation-toolbar">
     <button class="annotation-tool-btn" data-type="highlight">
       <span class="tool-swatch"></span>Highlight
@@ -69,6 +70,22 @@
 
   <!-- Comment hover tooltip -->
   <div id="annotation-tooltip"></div>
+
+  <!-- tl;dr panel -->
+  <div class="side-panel" id="summary-panel">
+    <div class="panel-header">
+      <span class="panel-title">tl;dr</span>
+      <button class="panel-close" id="close-summary">✕</button>
+    </div>
+    <div id="summary-body">
+      <div id="summary-content">
+        <span id="summary-text"></span><span id="summary-cursor">|</span>
+      </div>
+      <div id="summary-footer">
+        <button id="summary-regen">↻ Regenerate</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Settings panel -->
   <div class="side-panel" id="settings-panel">

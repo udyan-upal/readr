@@ -1,6 +1,8 @@
 // src/reader/reader.js
+var NVIDIA_API_KEY = "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";
 var currentArticle = null;
 var currentSettings = { theme: "light", font: "inter", size: "medium" };
+var summaryGenerating = false;
 var progressBar = document.getElementById("progress-bar");
 var body = document.body;
 var loadingState = document.getElementById("loading-state");
@@ -15,8 +17,10 @@ var titleEl = document.getElementById("article-title");
 var articleBody = document.getElementById("article-body");
 var btnHighlights = document.getElementById("btn-highlights");
 var btnSettings = document.getElementById("btn-settings");
+var btnTldr = document.getElementById("btn-tldr");
 var settingsPanel = document.getElementById("settings-panel");
 var highlightsPanel = document.getElementById("highlights-panel");
+var summaryPanel = document.getElementById("summary-panel");
 var closeSettings = document.getElementById("close-settings");
 var closeHighlights = document.getElementById("close-highlights");
 var highlightsList = document.getElementById("highlights-list");
@@ -115,19 +119,24 @@ document.getElementById("size-group").addEventListener("click", (e) => {
   if (btn)
     saveSetting("size", btn.dataset.value);
 });
+var ALL_PANELS = [
+  { panel: settingsPanel, btn: btnSettings },
+  { panel: highlightsPanel, btn: btnHighlights },
+  { panel: summaryPanel, btn: btnTldr }
+];
 function openPanel(panel, btnEl) {
-  settingsPanel.classList.remove("open");
-  highlightsPanel.classList.remove("open");
-  btnHighlights.classList.remove("active");
-  btnSettings.classList.remove("active");
+  ALL_PANELS.forEach(({ panel: p, btn: b }) => {
+    p.classList.remove("open");
+    b.classList.remove("active");
+  });
   panel.classList.add("open");
   btnEl.classList.add("active");
 }
 function closeAllPanels() {
-  settingsPanel.classList.remove("open");
-  highlightsPanel.classList.remove("open");
-  btnHighlights.classList.remove("active");
-  btnSettings.classList.remove("active");
+  ALL_PANELS.forEach(({ panel: p, btn: b }) => {
+    p.classList.remove("open");
+    b.classList.remove("active");
+  });
 }
 btnSettings.addEventListener("click", () => {
   settingsPanel.classList.contains("open") ? closeAllPanels() : openPanel(settingsPanel, btnSettings);
@@ -138,6 +147,15 @@ btnHighlights.addEventListener("click", () => {
   } else {
     renderAnnotationsPanel();
     openPanel(highlightsPanel, btnHighlights);
+  }
+});
+btnTldr.addEventListener("click", () => {
+  if (summaryPanel.classList.contains("open")) {
+    closeAllPanels();
+  } else {
+    openPanel(summaryPanel, btnTldr);
+    if (!summaryText.textContent)
+      streamSummary();
   }
 });
 closeSettings.addEventListener("click", closeAllPanels);
@@ -414,6 +432,81 @@ async function renderAnnotationsPanel() {
       renderAnnotationsPanel();
     });
   });
+}
+var summaryText = document.getElementById("summary-text");
+var summaryCursor = document.getElementById("summary-cursor");
+var summaryRegen = document.getElementById("summary-regen");
+document.getElementById("close-summary").addEventListener("click", closeAllPanels);
+document.getElementById("summary-regen").addEventListener("click", () => {
+  if (summaryGenerating)
+    return;
+  streamSummary();
+});
+async function streamSummary() {
+  if (!currentArticle || summaryGenerating)
+    return;
+  summaryGenerating = true;
+  summaryText.textContent = "";
+  summaryCursor.classList.remove("done");
+  summaryRegen.style.display = "none";
+  btnTldr.classList.add("active");
+  const prompt = `Summarize the following article in exactly 5 bullet points using "•" as the bullet character. ` + `Each bullet should be 1–2 sentences: substantive and informative, not just a headline. ` + `Cover the key idea, supporting detail, and any important nuance. Plain text only, no markdown, no headers.
+
+` + `Title: ${currentArticle.title}
+
+` + `${(currentArticle.textContent || "").slice(0, 7000)}`;
+  try {
+    const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${NVIDIA_API_KEY}`,
+        Accept: "text/event-stream",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "meta/llama-4-maverick-17b-128e-instruct",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 400,
+        temperature: 0.6,
+        top_p: 1,
+        stream: true
+      })
+    });
+    if (!response.ok)
+      throw new Error(`API error ${response.status}`);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder;
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done)
+        break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split(`
+`);
+      buffer = lines.pop();
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data: "))
+          continue;
+        const data = trimmed.slice(6);
+        if (data === "[DONE]")
+          break;
+        try {
+          const parsed = JSON.parse(data);
+          const token = parsed.choices?.[0]?.delta?.content;
+          if (token)
+            summaryText.textContent += token;
+        } catch {}
+      }
+    }
+  } catch (err) {
+    summaryText.textContent = "Could not generate summary. Check your API key or try again.";
+  } finally {
+    summaryCursor.classList.add("done");
+    summaryRegen.style.display = "";
+    summaryGenerating = false;
+  }
 }
 function escapeHtml(str) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

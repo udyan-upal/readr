@@ -224,6 +224,56 @@ body {
 }
 #loading-state p { font-size: 14px; color: var(--text-tertiary); }
 
+/* ─── tl;dr side panel ─── */
+
+#summary-panel { width: 320px; }
+
+#summary-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+#summary-content {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text-primary);
+}
+
+#summary-text { white-space: pre-wrap; }
+
+#summary-cursor {
+  display: inline-block;
+  color: var(--accent);
+  font-weight: 300;
+  animation: cursorBlink 0.7s ease infinite;
+  margin-left: 1px;
+}
+#summary-cursor.done { display: none; }
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+#summary-footer { display: flex; }
+
+#summary-regen {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-family: inherit;
+  display: none;
+  transition: background 0.12s, color 0.12s;
+}
+#summary-regen:hover { background: var(--highlight-bg); color: var(--text-primary); }
+
 /* ─── Inline annotations ─── */
 
 .annotation {
@@ -410,7 +460,7 @@ body {
 
 .side-panel {
   position: fixed;
-  top: 0; right: 0; bottom: 0;
+  top: 52px; right: 0; bottom: 0;
   background: var(--surface);
   border-left: 1px solid var(--border);
   z-index: 95;
@@ -429,6 +479,7 @@ body {
   position: sticky;
   top: 0;
   background: var(--surface);
+  z-index: 1;
 }
 .panel-title { font-size: 13px; font-weight: 500; color: var(--text-primary); }
 .panel-close {
