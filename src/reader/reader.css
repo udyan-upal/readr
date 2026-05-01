@@ -239,7 +239,20 @@ body {
   mix-blend-mode: screen;
 }
 
-.read-word-current { border-radius: 4px; }
+.read-word {
+  transition: color 200ms ease 180ms, opacity 200ms ease 180ms;
+}
+
+.read-word-done {
+  color: var(--text-tertiary);
+  opacity: 0.72;
+}
+
+.read-word-current {
+  border-radius: 4px;
+  color: var(--text-primary);
+  opacity: 1;
+}
 
 /* Read aloud player */
 #read-player {

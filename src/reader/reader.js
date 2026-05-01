@@ -11,9 +11,13 @@ let readAloudState = {
   chunks: [],
   currentChunkIndex: 0,
   currentWordIndex: -1,
+  doneUntilIndex: -1,
   boundaries: [],
   audio: null,
   audioUrl: null,
+  prefetchedClip: null,
+  prefetchPromise: null,
+  prefetchChunkIndex: -1,
   selectedVoice: "emma",
   rate: 1,
   isLoading: false,
@@ -258,12 +262,18 @@ async function fetchEdgeTtsClip(chunk) {
   };
 }
 
+function releaseEdgeTtsClip(clip) {
+  if (clip?.url) URL.revokeObjectURL(clip.url);
+}
+
 function prepareReadAloudWords() {
   readAloudState.words = [];
-  readAloudState.fullText = "";
+  readAloudState.fullText = articleBody.innerText;
   readAloudState.chunks = [];
   readAloudState.currentChunkIndex = 0;
   readAloudState.currentWordIndex = -1;
+  readAloudState.doneUntilIndex = -1;
+  let sourceSearchFrom = 0;
   const walker = document.createTreeWalker(articleBody, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       if (!node.textContent.trim()) return NodeFilter.FILTER_REJECT;
@@ -280,10 +290,7 @@ function prepareReadAloudWords() {
   for (const textNode of nodes) {
     const text = textNode.textContent;
     wordPattern.lastIndex = 0;
-    if (!wordPattern.test(text)) {
-      readAloudState.fullText += text;
-      continue;
-    }
+    if (!wordPattern.test(text)) continue;
     wordPattern.lastIndex = 0;
 
     const frag = document.createDocumentFragment();
@@ -293,21 +300,21 @@ function prepareReadAloudWords() {
       if (match.index > lastIndex) {
         const between = text.slice(lastIndex, match.index);
         frag.appendChild(document.createTextNode(between));
-        readAloudState.fullText += between;
       }
       const span = document.createElement("span");
       span.className = "read-word";
       span.dataset.readIndex = String(readAloudState.words.length);
       span.textContent = match[0];
       frag.appendChild(span);
-      readAloudState.words.push({ text: match[0], el: span, charStart: readAloudState.fullText.length });
-      readAloudState.fullText += match[0];
+      let charStart = readAloudState.fullText.indexOf(match[0], sourceSearchFrom);
+      if (charStart === -1) charStart = sourceSearchFrom;
+      readAloudState.words.push({ text: match[0], el: span, charStart });
+      sourceSearchFrom = charStart + match[0].length;
       lastIndex = match.index + match[0].length;
     }
     if (lastIndex < text.length) {
       const tail = text.slice(lastIndex);
       frag.appendChild(document.createTextNode(tail));
-      readAloudState.fullText += tail;
     }
     textNode.replaceWith(frag);
   }
@@ -374,13 +381,33 @@ function setCurrentReadWord(index, scroll = true) {
   previous?.classList.remove("read-word-current");
 
   readAloudState.currentWordIndex = index;
+  updateDoneReadWords(index);
   const current = readAloudState.words[index]?.el;
   if (current) {
+    current.classList.remove("read-word-done");
     current.classList.add("read-word-current");
     positionReadHighlight(current);
     if (scroll) current.scrollIntoView({ behavior: "smooth", block: "center" });
   }
   updateReadAloudUI();
+}
+
+function clearDoneReadWords() {
+  for (const word of readAloudState.words) {
+    word.el.classList.remove("read-word-done", "read-word-current");
+  }
+  readAloudState.doneUntilIndex = -1;
+}
+
+function updateDoneReadWords(activeIndex) {
+  const doneUntil = activeIndex - 1;
+  if (doneUntil < readAloudState.doneUntilIndex) {
+    clearDoneReadWords();
+  }
+  for (let i = readAloudState.doneUntilIndex + 1; i <= doneUntil; i++) {
+    readAloudState.words[i]?.el.classList.add("read-word-done");
+  }
+  readAloudState.doneUntilIndex = doneUntil;
 }
 
 function positionReadHighlight(wordEl) {
@@ -434,6 +461,48 @@ function clearReadAudio() {
   readAloudState.boundaries = [];
 }
 
+function clearPrefetchedReadClip() {
+  releaseEdgeTtsClip(readAloudState.prefetchedClip);
+  readAloudState.prefetchedClip = null;
+  readAloudState.prefetchPromise = null;
+  readAloudState.prefetchChunkIndex = -1;
+}
+
+function prefetchReadChunk(chunkIndex, sessionId) {
+  const chunk = readAloudState.chunks[chunkIndex];
+  if (!chunk) return;
+  if (readAloudState.prefetchChunkIndex === chunkIndex) return;
+
+  clearPrefetchedReadClip();
+  readAloudState.prefetchChunkIndex = chunkIndex;
+  readAloudState.prefetchPromise = fetchEdgeTtsClip(chunk)
+    .then((clip) => {
+      if (
+        sessionId !== readAloudState.sessionId ||
+        readAloudState.prefetchChunkIndex !== chunkIndex
+      ) {
+        releaseEdgeTtsClip(clip);
+        return null;
+      }
+      readAloudState.prefetchedClip = clip;
+      return clip;
+    })
+    .catch(() => null);
+}
+
+async function getReadClip(chunkIndex, chunk, sessionId) {
+  if (readAloudState.prefetchChunkIndex === chunkIndex) {
+    const clip = readAloudState.prefetchedClip || await readAloudState.prefetchPromise;
+    if (clip && sessionId === readAloudState.sessionId) {
+      readAloudState.prefetchedClip = null;
+      readAloudState.prefetchPromise = null;
+      readAloudState.prefetchChunkIndex = -1;
+      return clip;
+    }
+  }
+  return fetchEdgeTtsClip(chunk);
+}
+
 async function speakReadChunk(chunkIndex) {
   const chunk = readAloudState.chunks[chunkIndex];
   if (!chunk) {
@@ -449,9 +518,9 @@ async function speakReadChunk(chunkIndex) {
 
   try {
     clearReadAudio();
-    const clip = await fetchEdgeTtsClip(chunk);
+    const clip = await getReadClip(chunkIndex, chunk, sessionId);
     if (sessionId !== readAloudState.sessionId) {
-      URL.revokeObjectURL(clip.url);
+      releaseEdgeTtsClip(clip);
       return;
     }
 
@@ -481,6 +550,7 @@ async function speakReadChunk(chunkIndex) {
     readAloudState.isPlaying = true;
     readAloudState.isPaused = false;
     updateReadAloudUI();
+    prefetchReadChunk(chunkIndex + 1, sessionId);
     await audio.play();
   } catch (err) {
     if (sessionId !== readAloudState.sessionId) return;
@@ -499,6 +569,8 @@ function startReadAloud(startIndex = 0) {
 
   readAloudState.sessionId += 1;
   clearReadAudio();
+  clearPrefetchedReadClip();
+  clearDoneReadWords();
   const safeStart = Math.max(0, Math.min(startIndex, readAloudState.words.length - 1));
   readAloudState.chunks = buildReadAloudChunks(safeStart);
   readAloudState.currentChunkIndex = 0;
@@ -532,7 +604,8 @@ async function resumeReadAloud() {
 function stopReadAloud({ keepPlayerOpen = false } = {}) {
   readAloudState.sessionId += 1;
   clearReadAudio();
-  readAloudState.words[readAloudState.currentWordIndex]?.el?.classList.remove("read-word-current");
+  clearPrefetchedReadClip();
+  clearDoneReadWords();
   readHighlightPill.classList.remove("visible");
   readAloudState.isLoading = false;
   readAloudState.isPlaying = false;
