@@ -14,10 +14,10 @@
 
   <nav id="toolbar">
     <div id="toolbar-left">
-      <span id="site-name"></span>
-      <a id="original-url" href="#" target="_blank" rel="noopener noreferrer"></a>
+      <div id="brand-title">Readr</div>
     </div>
     <div id="toolbar-right">
+      <button class="toolbar-btn icon-btn" id="btn-info" aria-label="Article info" title="Article info">i</button>
       <button class="toolbar-btn" id="btn-read">Read</button>
       <button class="toolbar-btn" id="btn-tldr">tl;dr</button>
       <button class="toolbar-btn" id="btn-highlights">Annotations</button>
@@ -72,6 +72,30 @@
   <!-- Comment hover tooltip -->
   <div id="annotation-tooltip"></div>
   <div id="read-highlight-pill"></div>
+
+  <!-- Article info popover -->
+  <div id="info-popover">
+    <div class="info-row">
+      <span class="info-label">Page</span>
+      <span class="info-value" id="info-title"></span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Site</span>
+      <span class="info-value" id="site-name"></span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">URL</span>
+      <a class="info-value" id="original-url" href="#" target="_blank" rel="noopener noreferrer"></a>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Read time</span>
+      <span class="info-value" id="info-read-time"></span>
+    </div>
+    <div class="info-row" id="info-byline-row">
+      <span class="info-label">Byline</span>
+      <span class="info-value" id="info-byline"></span>
+    </div>
+  </div>
 
   <!-- Read aloud controls -->
   <div id="read-player" aria-label="Read aloud controls">

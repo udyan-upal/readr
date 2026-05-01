@@ -36,10 +36,15 @@ const errorState = document.getElementById("error-state");
 const errorMessage = document.getElementById("error-message");
 const siteNameEl = document.getElementById("site-name");
 const originalUrlEl = document.getElementById("original-url");
+const infoTitleEl = document.getElementById("info-title");
+const infoReadTimeEl = document.getElementById("info-read-time");
+const infoBylineRow = document.getElementById("info-byline-row");
+const infoBylineEl = document.getElementById("info-byline");
 const readTimeEl = document.getElementById("read-time");
 const bylineEl = document.getElementById("byline");
 const titleEl = document.getElementById("article-title");
 const articleBody = document.getElementById("article-body");
+const btnInfo = document.getElementById("btn-info");
 const btnRead = document.getElementById("btn-read");
 const btnHighlights = document.getElementById("btn-highlights");
 const btnSettings = document.getElementById("btn-settings");
@@ -56,6 +61,7 @@ const commentPopup = document.getElementById("comment-popup");
 const commentInput = document.getElementById("comment-input");
 const annotationTooltip = document.getElementById("annotation-tooltip");
 const readHighlightPill = document.getElementById("read-highlight-pill");
+const infoPopover = document.getElementById("info-popover");
 const readPlayer = document.getElementById("read-player");
 const readProgressFill = document.getElementById("read-progress-fill");
 const readPlayPause = document.getElementById("read-play-pause");
@@ -109,12 +115,17 @@ function renderArticle(article) {
   siteNameEl.textContent = article.siteName || "";
   originalUrlEl.textContent = article.url || "";
   originalUrlEl.href = article.url || "#";
+  infoTitleEl.textContent = article.title || "Untitled page";
   if (article.readTime) readTimeEl.textContent = `${article.readTime} min read`;
+  infoReadTimeEl.textContent = article.readTime ? `${article.readTime} min read` : "Unknown";
   if (article.byline) {
     bylineEl.textContent = article.byline;
+    infoBylineEl.textContent = article.byline;
     bylineEl.style.display = "";
+    infoBylineRow.style.display = "";
   } else {
     bylineEl.style.display = "none";
+    infoBylineRow.style.display = "none";
   }
   titleEl.textContent = article.title || "";
   articleBody.innerHTML = article.content || "";
@@ -216,6 +227,18 @@ btnTldr.addEventListener("click", () => {
 });
 closeSettings.addEventListener("click", closeAllPanels);
 closeHighlights.addEventListener("click", closeAllPanels);
+
+btnInfo.addEventListener("click", (e) => {
+  e.stopPropagation();
+  infoPopover.classList.toggle("open");
+  btnInfo.classList.toggle("active", infoPopover.classList.contains("open"));
+});
+
+document.addEventListener("click", (e) => {
+  if (e.target.closest("#info-popover") || e.target.closest("#btn-info")) return;
+  infoPopover.classList.remove("open");
+  btnInfo.classList.remove("active");
+});
 
 // --- Progress bar ---
 
