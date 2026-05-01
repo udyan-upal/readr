@@ -1,5 +1,5 @@
 {
-  "name": "focusread",
+  "name": "readr",
   "version": "1.0.0",
   "scripts": {
     "build": "bun run build.ts",

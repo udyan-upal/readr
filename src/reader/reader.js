@@ -43,31 +43,43 @@ async function init() {
   applySettings();
   updateSettingsUI();
 
+  // Always watch for incoming article data (handles re-extractions too)
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "session") return;
+    if (!("pendingArticle" in changes) && !("pendingError" in changes)) return;
+
+    const article = changes.pendingArticle?.newValue ?? null;
+    const error = changes.pendingError?.newValue ?? null;
+
+    loadingState.style.display = "none";
+    articleContainer.style.display = "none";
+    errorState.style.display = "none";
+
+    if (article) {
+      currentArticle = article;
+      renderArticle(article);
+    } else if (error) {
+      showError(error);
+    }
+  });
+
   const session = await chrome.storage.session.get(["pendingArticle", "pendingError"]);
 
-  loadingState.style.display = "none";
-
-  if (session.pendingError && !session.pendingArticle) {
+  if (session.pendingArticle) {
+    loadingState.style.display = "none";
+    currentArticle = session.pendingArticle;
+    renderArticle(session.pendingArticle);
+  } else if (session.pendingError) {
+    loadingState.style.display = "none";
     showError(session.pendingError);
-    return;
   }
-
-  if (!session.pendingArticle) {
-    showError("No article data found. Try opening FocusRead again.");
-    return;
-  }
-
-  currentArticle = session.pendingArticle;
-  renderArticle(currentArticle);
-
-  // Clear session so stale data doesn't persist
-  await chrome.storage.session.remove(["pendingArticle", "pendingError"]);
+  // else: stay on loading state until storage.onChanged fires
 }
 
 // --- Render ---
 
 function renderArticle(article) {
-  document.title = article.title ? `${article.title} — FocusRead` : "FocusRead";
+  document.title = article.title ? `${article.title} — readr` : "readr";
 
   siteNameEl.textContent = article.siteName || "";
   originalUrlEl.textContent = article.url || "";
