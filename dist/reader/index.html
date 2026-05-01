@@ -18,6 +18,7 @@
       <a id="original-url" href="#" target="_blank" rel="noopener noreferrer"></a>
     </div>
     <div id="toolbar-right">
+      <button class="toolbar-btn" id="btn-read">Read</button>
       <button class="toolbar-btn" id="btn-tldr">tl;dr</button>
       <button class="toolbar-btn" id="btn-highlights">Annotations</button>
       <button class="toolbar-btn" id="btn-settings">Settings</button>
@@ -70,6 +71,33 @@
 
   <!-- Comment hover tooltip -->
   <div id="annotation-tooltip"></div>
+
+  <!-- Read aloud controls -->
+  <div id="read-player" aria-label="Read aloud controls">
+    <div id="read-progress"><div id="read-progress-fill"></div></div>
+    <div id="read-player-body">
+      <div id="read-voice-group" class="read-control-group" role="group" aria-label="Voice">
+        <span class="read-control-label">Voice</span>
+        <button class="read-chip" data-voice="ava">Ava</button>
+        <button class="read-chip" data-voice="chris">Chris</button>
+        <button class="read-chip" data-voice="emma">Emma</button>
+      </div>
+
+      <div id="read-transport">
+        <button id="read-play-pause" title="Play">Play</button>
+        <button id="read-stop" title="Stop">Stop</button>
+      </div>
+
+      <div id="read-rate-group" class="read-control-group" role="group" aria-label="Speed">
+        <span class="read-control-label">Speed</span>
+        <button class="read-chip" data-rate="0.75">0.75x</button>
+        <button class="read-chip" data-rate="1">1x</button>
+        <button class="read-chip" data-rate="1.25">1.25x</button>
+        <button class="read-chip" data-rate="1.5">1.5x</button>
+      </div>
+    </div>
+    <div id="read-error"></div>
+  </div>
 
   <!-- tl;dr panel -->
   <div class="side-panel" id="summary-panel">

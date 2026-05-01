@@ -3,6 +3,22 @@ var NVIDIA_API_KEY = "nvapi-Cl7OPKCjpLVJkzWeSo5QIl3afHDYQuADFUbG6YRNxLoPkVMtb6XQ
 var currentArticle = null;
 var currentSettings = { theme: "light", font: "inter", size: "medium" };
 var summaryGenerating = false;
+var readAloudState = {
+  words: [],
+  chunks: [],
+  currentChunkIndex: 0,
+  currentWordIndex: -1,
+  boundaries: [],
+  audio: null,
+  audioUrl: null,
+  selectedVoice: "emma",
+  rate: 1,
+  isLoading: false,
+  isPlaying: false,
+  isPaused: false,
+  sessionId: 0,
+  error: null
+};
 var progressBar = document.getElementById("progress-bar");
 var body = document.body;
 var loadingState = document.getElementById("loading-state");
@@ -15,6 +31,7 @@ var readTimeEl = document.getElementById("read-time");
 var bylineEl = document.getElementById("byline");
 var titleEl = document.getElementById("article-title");
 var articleBody = document.getElementById("article-body");
+var btnRead = document.getElementById("btn-read");
 var btnHighlights = document.getElementById("btn-highlights");
 var btnSettings = document.getElementById("btn-settings");
 var btnTldr = document.getElementById("btn-tldr");
@@ -28,13 +45,23 @@ var annotationToolbar = document.getElementById("annotation-toolbar");
 var commentPopup = document.getElementById("comment-popup");
 var commentInput = document.getElementById("comment-input");
 var annotationTooltip = document.getElementById("annotation-tooltip");
+var readPlayer = document.getElementById("read-player");
+var readProgressFill = document.getElementById("read-progress-fill");
+var readPlayPause = document.getElementById("read-play-pause");
+var readStop = document.getElementById("read-stop");
+var readVoiceGroup = document.getElementById("read-voice-group");
+var readRateGroup = document.getElementById("read-rate-group");
+var readError = document.getElementById("read-error");
 async function init() {
-  const saved = await chrome.storage.local.get(["theme", "font", "size"]);
+  const saved = await chrome.storage.local.get(["theme", "font", "size", "readVoice", "readRate"]);
   currentSettings.theme = saved.theme || "light";
   currentSettings.font = saved.font || "inter";
   currentSettings.size = saved.size || "medium";
+  readAloudState.selectedVoice = saved.readVoice || "emma";
+  readAloudState.rate = saved.readRate || 1;
   applySettings();
   updateSettingsUI();
+  updateReadAloudUI();
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "session")
       return;
@@ -63,6 +90,7 @@ async function init() {
   }
 }
 function renderArticle(article) {
+  stopReadAloud({ keepPlayerOpen: false });
   document.title = article.title ? `${article.title} — readr` : "readr";
   siteNameEl.textContent = article.siteName || "";
   originalUrlEl.textContent = article.url || "";
@@ -81,6 +109,7 @@ function renderArticle(article) {
     a.setAttribute("target", "_blank");
     a.setAttribute("rel", "noopener noreferrer");
   });
+  prepareReadAloudWords();
   articleContainer.style.display = "";
   applyAnnotationsToDOM();
 }
@@ -165,6 +194,312 @@ window.addEventListener("scroll", () => {
   const pct = docHeight > 0 ? window.scrollY / docHeight * 100 : 0;
   progressBar.style.width = `${Math.min(100, pct)}%`;
 });
+var EDGE_TTS_API_URL = "http://localhost:3001/api/tts";
+var EDGE_TTS_VOICES = {
+  ava: "en-US-AvaNeural",
+  chris: "en-US-ChristopherNeural",
+  emma: "en-US-EmmaNeural"
+};
+function rateToEdgeRate(rate) {
+  const pct = Math.round((rate - 1) * 100);
+  return `${pct >= 0 ? "+" : ""}${pct}%`;
+}
+function base64ToAudioUrl(base64) {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0;i < bin.length; i++)
+    bytes[i] = bin.charCodeAt(i);
+  return URL.createObjectURL(new Blob([bytes], { type: "audio/mpeg" }));
+}
+async function fetchEdgeTtsClip(chunk) {
+  const response = await fetch(EDGE_TTS_API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text: chunk.text,
+      voice: EDGE_TTS_VOICES[readAloudState.selectedVoice],
+      rate: rateToEdgeRate(readAloudState.rate)
+    })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok)
+    throw new Error(data.error || `TTS failed (${response.status})`);
+  if (!data.audio)
+    throw new Error("TTS returned no audio.");
+  return {
+    url: base64ToAudioUrl(data.audio),
+    boundaries: Array.isArray(data.boundaries) ? data.boundaries : []
+  };
+}
+function prepareReadAloudWords() {
+  readAloudState.words = [];
+  readAloudState.chunks = [];
+  readAloudState.currentChunkIndex = 0;
+  readAloudState.currentWordIndex = -1;
+  const walker = document.createTreeWalker(articleBody, NodeFilter.SHOW_TEXT, {
+    acceptNode(node2) {
+      if (!node2.textContent.trim())
+        return NodeFilter.FILTER_REJECT;
+      if (node2.parentElement?.closest("script, style, textarea, button"))
+        return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  const nodes = [];
+  let node;
+  while (node = walker.nextNode())
+    nodes.push(node);
+  const wordPattern = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu;
+  for (const textNode of nodes) {
+    const text = textNode.textContent;
+    wordPattern.lastIndex = 0;
+    if (!wordPattern.test(text))
+      continue;
+    wordPattern.lastIndex = 0;
+    const frag = document.createDocumentFragment();
+    let lastIndex = 0;
+    let match;
+    while (match = wordPattern.exec(text)) {
+      if (match.index > lastIndex) {
+        frag.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+      }
+      const span = document.createElement("span");
+      span.className = "read-word";
+      span.dataset.readIndex = String(readAloudState.words.length);
+      span.textContent = match[0];
+      frag.appendChild(span);
+      readAloudState.words.push({ text: match[0], el: span });
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < text.length)
+      frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+    textNode.replaceWith(frag);
+  }
+  updateReadAloudUI();
+}
+function buildReadAloudChunks(startIndex) {
+  const chunks = [];
+  const maxChars = 1500;
+  let chunk = null;
+  for (let i = Math.max(0, startIndex);i < readAloudState.words.length; i++) {
+    const word = readAloudState.words[i].text;
+    if (!chunk)
+      chunk = { text: "", wordStart: i, wordEnd: i, charStarts: [] };
+    const prefix = chunk.text ? " " : "";
+    if (chunk.text && chunk.text.length + prefix.length + word.length > maxChars) {
+      chunks.push(chunk);
+      chunk = { text: "", wordStart: i, wordEnd: i, charStarts: [] };
+    }
+    chunk.charStarts.push(chunk.text.length + (chunk.text ? 1 : 0));
+    chunk.text += `${chunk.text ? " " : ""}${word}`;
+    chunk.wordEnd = i;
+  }
+  if (chunk?.text)
+    chunks.push(chunk);
+  return chunks;
+}
+function updateReadAloudUI() {
+  btnRead.classList.toggle("active", readAloudState.isPlaying || readAloudState.isPaused);
+  readPlayer.classList.toggle("open", readAloudState.isLoading || readAloudState.isPlaying || readAloudState.isPaused || !!readAloudState.error);
+  readPlayPause.textContent = readAloudState.isLoading ? "Loading" : readAloudState.isPlaying ? "Pause" : "Play";
+  readPlayPause.title = readAloudState.isPlaying ? "Pause" : "Play";
+  readPlayPause.disabled = readAloudState.isLoading;
+  readError.textContent = readAloudState.error || "";
+  readError.classList.toggle("visible", !!readAloudState.error);
+  readVoiceGroup.querySelectorAll(".read-chip[data-voice]").forEach((btn) => {
+    btn.classList.toggle("selected", btn.dataset.voice === readAloudState.selectedVoice);
+  });
+  readRateGroup.querySelectorAll(".read-chip[data-rate]").forEach((btn) => {
+    btn.classList.toggle("selected", Number(btn.dataset.rate) === readAloudState.rate);
+  });
+  const total = Math.max(1, readAloudState.words.length - 1);
+  const pct = readAloudState.currentWordIndex > 0 ? readAloudState.currentWordIndex / total * 100 : 0;
+  readProgressFill.style.width = `${Math.min(100, pct)}%`;
+}
+function setCurrentReadWord(index, scroll = true) {
+  const previous = readAloudState.words[readAloudState.currentWordIndex]?.el;
+  previous?.classList.remove("read-word-current");
+  readAloudState.currentWordIndex = index;
+  const current = readAloudState.words[index]?.el;
+  if (current) {
+    current.classList.add("read-word-current");
+    if (scroll)
+      current.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  updateReadAloudUI();
+}
+function wordIndexFromTime(chunk, ms) {
+  const boundaries = readAloudState.boundaries;
+  let boundaryIndex = -1;
+  for (let i = 0;i < boundaries.length; i++) {
+    if ((boundaries[i].offsetMs || 0) <= ms)
+      boundaryIndex = i;
+    else
+      break;
+  }
+  if (boundaryIndex >= 0)
+    return Math.min(chunk.wordEnd, chunk.wordStart + boundaryIndex);
+  return chunk.wordStart;
+}
+function clearReadAudio() {
+  const audio = readAloudState.audio;
+  if (audio) {
+    audio.pause();
+    audio.ontimeupdate = null;
+    audio.onended = null;
+    audio.onerror = null;
+    audio.onpause = null;
+    audio.onplay = null;
+    audio.src = "";
+  }
+  if (readAloudState.audioUrl)
+    URL.revokeObjectURL(readAloudState.audioUrl);
+  readAloudState.audio = null;
+  readAloudState.audioUrl = null;
+  readAloudState.boundaries = [];
+}
+async function speakReadChunk(chunkIndex) {
+  const chunk = readAloudState.chunks[chunkIndex];
+  if (!chunk) {
+    stopReadAloud({ keepPlayerOpen: false });
+    return;
+  }
+  readAloudState.currentChunkIndex = chunkIndex;
+  const sessionId = readAloudState.sessionId;
+  readAloudState.isLoading = true;
+  readAloudState.error = null;
+  updateReadAloudUI();
+  try {
+    clearReadAudio();
+    const clip = await fetchEdgeTtsClip(chunk);
+    if (sessionId !== readAloudState.sessionId) {
+      URL.revokeObjectURL(clip.url);
+      return;
+    }
+    const audio = new Audio(clip.url);
+    readAloudState.audio = audio;
+    readAloudState.audioUrl = clip.url;
+    readAloudState.boundaries = clip.boundaries;
+    audio.ontimeupdate = () => {
+      if (sessionId !== readAloudState.sessionId)
+        return;
+      setCurrentReadWord(wordIndexFromTime(chunk, audio.currentTime * 1000));
+    };
+    audio.onended = () => {
+      if (sessionId !== readAloudState.sessionId)
+        return;
+      speakReadChunk(chunkIndex + 1);
+    };
+    audio.onerror = () => {
+      if (sessionId !== readAloudState.sessionId)
+        return;
+      readAloudState.isLoading = false;
+      readAloudState.isPlaying = false;
+      readAloudState.isPaused = false;
+      readAloudState.error = "Could not play Edge TTS audio.";
+      updateReadAloudUI();
+    };
+    readAloudState.isLoading = false;
+    readAloudState.isPlaying = true;
+    readAloudState.isPaused = false;
+    updateReadAloudUI();
+    await audio.play();
+  } catch (err) {
+    if (sessionId !== readAloudState.sessionId)
+      return;
+    clearReadAudio();
+    readAloudState.isLoading = false;
+    readAloudState.isPlaying = false;
+    readAloudState.isPaused = false;
+    readAloudState.error = `${err.message || "Edge TTS failed."} Make sure ebook-reader is running on localhost:3001.`;
+    updateReadAloudUI();
+  }
+}
+function startReadAloud(startIndex = 0) {
+  if (!readAloudState.words.length)
+    prepareReadAloudWords();
+  if (!readAloudState.words.length)
+    return;
+  readAloudState.sessionId += 1;
+  clearReadAudio();
+  const safeStart = Math.max(0, Math.min(startIndex, readAloudState.words.length - 1));
+  readAloudState.chunks = buildReadAloudChunks(safeStart);
+  readAloudState.currentChunkIndex = 0;
+  readAloudState.isLoading = false;
+  readAloudState.isPlaying = false;
+  readAloudState.isPaused = false;
+  readAloudState.error = null;
+  setCurrentReadWord(safeStart, false);
+  updateReadAloudUI();
+  speakReadChunk(0);
+}
+function pauseReadAloud() {
+  readAloudState.audio?.pause();
+  readAloudState.isPlaying = false;
+  readAloudState.isPaused = true;
+  updateReadAloudUI();
+}
+async function resumeReadAloud() {
+  if (!readAloudState.audio) {
+    startReadAloud(Math.max(0, readAloudState.currentWordIndex));
+    return;
+  }
+  await readAloudState.audio.play();
+  readAloudState.isPlaying = true;
+  readAloudState.isPaused = false;
+  updateReadAloudUI();
+}
+function stopReadAloud({ keepPlayerOpen = false } = {}) {
+  readAloudState.sessionId += 1;
+  clearReadAudio();
+  readAloudState.words[readAloudState.currentWordIndex]?.el?.classList.remove("read-word-current");
+  readAloudState.isLoading = false;
+  readAloudState.isPlaying = false;
+  readAloudState.isPaused = false;
+  readAloudState.currentWordIndex = -1;
+  readAloudState.error = null;
+  readProgressFill.style.width = "0%";
+  if (!keepPlayerOpen)
+    readPlayer.classList.remove("open");
+  updateReadAloudUI();
+}
+function toggleReadAloud() {
+  if (readAloudState.isPlaying) {
+    pauseReadAloud();
+  } else if (readAloudState.isPaused) {
+    resumeReadAloud();
+  } else {
+    startReadAloud(Math.max(0, readAloudState.currentWordIndex));
+  }
+}
+btnRead.addEventListener("click", toggleReadAloud);
+readPlayPause.addEventListener("click", toggleReadAloud);
+readStop.addEventListener("click", () => stopReadAloud({ keepPlayerOpen: false }));
+readVoiceGroup.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".read-chip[data-voice]");
+  if (!btn)
+    return;
+  readAloudState.selectedVoice = btn.dataset.voice;
+  await chrome.storage.local.set({ readVoice: readAloudState.selectedVoice });
+  const restartAt = Math.max(0, readAloudState.currentWordIndex);
+  const wasActive = readAloudState.isPlaying || readAloudState.isPaused;
+  updateReadAloudUI();
+  if (wasActive)
+    startReadAloud(restartAt);
+});
+readRateGroup.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".read-chip[data-rate]");
+  if (!btn)
+    return;
+  readAloudState.rate = Number(btn.dataset.rate) || 1;
+  await chrome.storage.local.set({ readRate: readAloudState.rate });
+  const restartAt = Math.max(0, readAloudState.currentWordIndex);
+  const wasActive = readAloudState.isPlaying || readAloudState.isPaused;
+  updateReadAloudUI();
+  if (wasActive)
+    startReadAloud(restartAt);
+});
+window.addEventListener("beforeunload", () => stopReadAloud({ keepPlayerOpen: false }));
 function findTextInDOM(container, searchText, prefix, suffix) {
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
   const nodes = [];
@@ -261,7 +596,7 @@ articleBody.addEventListener("click", async (e) => {
 var pendingRange = null;
 var commentRange = null;
 document.addEventListener("mouseup", (e) => {
-  if (e.target.closest("#annotation-toolbar") || e.target.closest("#comment-popup") || e.target.closest("#settings-panel") || e.target.closest("#highlights-panel") || e.target.closest("#toolbar"))
+  if (e.target.closest("#annotation-toolbar") || e.target.closest("#comment-popup") || e.target.closest("#settings-panel") || e.target.closest("#highlights-panel") || e.target.closest("#read-player") || e.target.closest("#toolbar"))
     return;
   const sel = window.getSelection();
   const text = sel?.toString().trim();
@@ -274,7 +609,7 @@ document.addEventListener("mouseup", (e) => {
   annotationToolbar.style.display = "flex";
 });
 document.addEventListener("mousedown", (e) => {
-  if (!e.target.closest("#annotation-toolbar") && !e.target.closest("#comment-popup")) {
+  if (!e.target.closest("#annotation-toolbar") && !e.target.closest("#comment-popup") && !e.target.closest("#read-player")) {
     hideAnnotationUI();
   }
 });
