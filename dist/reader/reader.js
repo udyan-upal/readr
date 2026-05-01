@@ -220,6 +220,26 @@ async function applyAnnotationsToDOM() {
       wrapRange(range, annotation);
   }
 }
+articleBody.addEventListener("click", async (e) => {
+  const span = e.target.closest(".annotation");
+  if (!span)
+    return;
+  const id = span.dataset.annotationId;
+  if (!id)
+    return;
+  if (!highlightsPanel.classList.contains("open")) {
+    await renderAnnotationsPanel();
+    openPanel(highlightsPanel, btnHighlights);
+  }
+  requestAnimationFrame(() => {
+    const item = highlightsList.querySelector(`[data-annotation-id="${id}"]`);
+    if (!item)
+      return;
+    item.scrollIntoView({ behavior: "smooth", block: "center" });
+    item.classList.add("annotation-flash");
+    setTimeout(() => item.classList.remove("annotation-flash"), 900);
+  });
+});
 var pendingRange = null;
 var commentRange = null;
 document.addEventListener("mouseup", (e) => {

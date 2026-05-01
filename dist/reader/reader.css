@@ -257,6 +257,12 @@ body {
 }
 .annotation-flash { animation: annotationFlash 0.9s ease; }
 
+@keyframes panelItemFlash {
+  0%, 100% { background: transparent; }
+  40%       { background: var(--highlight-bg); }
+}
+.highlight-item.annotation-flash { animation: panelItemFlash 0.9s ease; }
+
 /* ─── Floating annotation toolbar ─── */
 
 #annotation-toolbar {

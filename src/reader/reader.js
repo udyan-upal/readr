@@ -241,6 +241,31 @@ async function applyAnnotationsToDOM() {
   }
 }
 
+// --- Click annotation in article → highlight in panel ---
+
+articleBody.addEventListener("click", async (e) => {
+  const span = e.target.closest(".annotation");
+  if (!span) return;
+
+  const id = span.dataset.annotationId;
+  if (!id) return;
+
+  // Open panel if closed
+  if (!highlightsPanel.classList.contains("open")) {
+    await renderAnnotationsPanel();
+    openPanel(highlightsPanel, btnHighlights);
+  }
+
+  // Wait a tick for panel render if it was just opened
+  requestAnimationFrame(() => {
+    const item = highlightsList.querySelector(`[data-annotation-id="${id}"]`);
+    if (!item) return;
+    item.scrollIntoView({ behavior: "smooth", block: "center" });
+    item.classList.add("annotation-flash");
+    setTimeout(() => item.classList.remove("annotation-flash"), 900);
+  });
+});
+
 // --- Annotation toolbar on selection ---
 
 let pendingRange = null;
