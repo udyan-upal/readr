@@ -51,6 +51,7 @@ async function build() {
   await copyFile("src/reader/reader.css", `${outdir}/reader/reader.css`);
   await copyFile("src/popup/popup.html", `${outdir}/popup/popup.html`);
   await copyFile("icons/readr.png", `${outdir}/icons/readr.png`);
+  await copyFile("icons/readr-nobg.png", `${outdir}/icons/readr-nobg.png`);
 
   // Resize brand logo into required icon sizes
   const logo = "icons/readr.png";

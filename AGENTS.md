@@ -17,7 +17,7 @@
 ## Build Gotchas
 - `build.ts` is the source of truth for bundled entrypoints and copied files; update it when adding new JS/CSS/HTML assets that must reach `dist/`.
 - Do not hand-edit generated `dist/` files for source changes; edit `src/`, `manifest.json`, or `icons/` and rebuild.
-- The build copies `icons/readr.png` for UI use and resizes it into `dist/icons/icon16.png`, `icon48.png`, and `icon128.png` using macOS `sips`; this build expects a macOS environment.
+- The build copies `icons/readr.png` and `icons/readr-nobg.png`; extension icons are resized from `icons/readr.png` using macOS `sips`, while the reader header uses `readr-nobg.png`.
 
 ## Environment
 - `.env.example` documents `NVIDIA_API_KEY`; `.env.local` is gitignored and may contain the real key.
