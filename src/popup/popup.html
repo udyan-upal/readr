@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>readr</title>
+  <link rel="icon" href="../icons/readr.png" />
   <style>
     :root {
       --bg: #F9F7F4;
@@ -23,7 +24,7 @@
 
     body {
       width: 240px;
-      height: 120px;
+      height: 150px;
       background: var(--bg);
       font-family: 'Inter', system-ui, sans-serif;
       display: flex;
@@ -32,6 +33,12 @@
       justify-content: center;
       gap: 12px;
       padding: 20px;
+    }
+
+    #popup-logo {
+      width: 76px;
+      height: auto;
+      display: block;
     }
 
     #open-btn {
@@ -67,6 +74,7 @@
   </style>
 </head>
 <body>
+  <img id="popup-logo" src="../icons/readr.png" alt="readr" />
   <button id="open-btn">Open readr</button>
   <span id="status"></span>
   <script src="popup.js"></script>

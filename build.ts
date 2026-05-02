@@ -50,9 +50,10 @@ async function build() {
   await copyFile("src/reader/index.html", `${outdir}/reader/index.html`);
   await copyFile("src/reader/reader.css", `${outdir}/reader/reader.css`);
   await copyFile("src/popup/popup.html", `${outdir}/popup/popup.html`);
+  await copyFile("icons/readr.png", `${outdir}/icons/readr.png`);
 
   // Resize brand logo into required icon sizes
-  const logo = "icons/image.png";
+  const logo = "icons/readr.png";
   for (const size of [16, 48, 128]) {
     spawnSync("sips", ["-z", String(size), String(size), logo, "--out", `${outdir}/icons/icon${size}.png`]);
   }

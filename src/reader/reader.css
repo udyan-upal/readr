@@ -92,14 +92,11 @@ body {
   max-width: 60%;
 }
 
-#brand-title {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.04em;
-  color: var(--text-primary);
-  white-space: nowrap;
+#brand-logo {
+  display: block;
+  width: 120px;
+  height: auto;
+  object-fit: contain;
 }
 
 #toolbar-right { display: flex; align-items: center; gap: 8px; }
