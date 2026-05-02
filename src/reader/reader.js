@@ -327,7 +327,7 @@ function updateActiveTocItem() {
 
 // --- Read aloud ---
 
-const EDGE_TTS_API_URL = "http://localhost:3001/api/tts";
+const EDGE_TTS_API_URL = __EDGE_TTS_API_URL__;
 const EDGE_TTS_VOICES = {
   ava: "en-US-AvaNeural",
   chris: "en-US-ChristopherNeural",

@@ -19,6 +19,9 @@ async function build() {
   const nvidiaKey = process.env.NVIDIA_API_KEY ?? "";
   if (!nvidiaKey) console.warn("Warning: NVIDIA_API_KEY not set in .env.local");
 
+  const edgeTtsUrl = process.env.EDGE_TTS_API_URL ?? "http://localhost:3001/api/tts";
+  if (!process.env.EDGE_TTS_API_URL) console.warn("Warning: EDGE_TTS_API_URL not set in .env.local, using default");
+
   const results = await Bun.build({
     entrypoints: [
       "src/content/extractor.js",
@@ -32,6 +35,7 @@ async function build() {
     splitting: false,
     define: {
       __NVIDIA_API_KEY__: JSON.stringify(nvidiaKey),
+      __EDGE_TTS_API_URL__: JSON.stringify(edgeTtsUrl),
     },
   });
 
