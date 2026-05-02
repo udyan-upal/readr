@@ -3,7 +3,8 @@ const NVIDIA_API_KEY = __NVIDIA_API_KEY__;
 
 // State
 let currentArticle = null;
-let currentSettings = { theme: "light", font: "inter", size: "medium" };
+const DEFAULT_SETTINGS = { theme: "sepia", font: "georgia", size: "medium" };
+let currentSettings = { ...DEFAULT_SETTINGS };
 let summaryGenerating = false;
 let chatGenerating = false;
 let readAloudState = {
@@ -47,6 +48,8 @@ const readTimeEl = document.getElementById("read-time");
 const bylineEl = document.getElementById("byline");
 const titleEl = document.getElementById("article-title");
 const articleBody = document.getElementById("article-body");
+const toc = document.getElementById("toc");
+const tocList = document.getElementById("toc-list");
 const btnInfo = document.getElementById("btn-info");
 const btnRead = document.getElementById("btn-read");
 const btnHighlights = document.getElementById("btn-highlights");
@@ -61,6 +64,7 @@ const summaryContent = document.getElementById("summary-content");
 const closeSettings = document.getElementById("close-settings");
 const closeHighlights = document.getElementById("close-highlights");
 const closeChat = document.getElementById("close-chat");
+const settingsDefault = document.getElementById("settings-default");
 const highlightsList = document.getElementById("highlights-list");
 const annotationToolbar = document.getElementById("annotation-toolbar");
 const commentPopup = document.getElementById("comment-popup");
@@ -80,9 +84,9 @@ const readError = document.getElementById("read-error");
 
 async function init() {
   const saved = await chrome.storage.local.get(["theme", "font", "size", "readVoice", "readRate"]);
-  currentSettings.theme = saved.theme || "light";
-  currentSettings.font = saved.font || "inter";
-  currentSettings.size = saved.size || "medium";
+  currentSettings.theme = saved.theme || DEFAULT_SETTINGS.theme;
+  currentSettings.font = saved.font || DEFAULT_SETTINGS.font;
+  currentSettings.size = saved.size || DEFAULT_SETTINGS.size;
   readAloudState.selectedVoice = saved.readVoice || "emma";
   readAloudState.rate = saved.readRate || 1;
 
@@ -141,6 +145,7 @@ function renderArticle(article) {
     a.setAttribute("rel", "noopener noreferrer");
   });
   prepareReadAloudWords();
+  buildTableOfContents();
   articleContainer.style.display = "";
   applyAnnotationsToDOM();
 }
@@ -167,6 +172,13 @@ function updateSettingsUI() {
     btn.classList.toggle("selected", btn.dataset.value === currentSettings.font));
   document.querySelectorAll("#size-group .option-btn").forEach((btn) =>
     btn.classList.toggle("selected", btn.dataset.value === currentSettings.size));
+  settingsDefault.disabled = isDefaultSettings();
+}
+
+function isDefaultSettings() {
+  return currentSettings.theme === DEFAULT_SETTINGS.theme &&
+    currentSettings.font === DEFAULT_SETTINGS.font &&
+    currentSettings.size === DEFAULT_SETTINGS.size;
 }
 
 async function saveSetting(key, value) {
@@ -187,6 +199,14 @@ document.getElementById("font-group").addEventListener("click", (e) => {
 document.getElementById("size-group").addEventListener("click", (e) => {
   const btn = e.target.closest(".option-btn");
   if (btn) saveSetting("size", btn.dataset.value);
+});
+
+settingsDefault.addEventListener("click", async () => {
+  if (isDefaultSettings()) return;
+  currentSettings = { ...DEFAULT_SETTINGS };
+  await chrome.storage.local.set(DEFAULT_SETTINGS);
+  applySettings();
+  updateSettingsUI();
 });
 
 // --- Panel toggles ---
@@ -258,7 +278,52 @@ window.addEventListener("scroll", () => {
   const docHeight = document.documentElement.scrollHeight - window.innerHeight;
   const pct = docHeight > 0 ? (window.scrollY / docHeight) * 100 : 0;
   progressBar.style.width = `${Math.min(100, pct)}%`;
+  updateActiveTocItem();
 });
+
+// --- Table of contents ---
+
+let tocHeadings = [];
+
+function buildTableOfContents() {
+  tocHeadings = Array.from(articleBody.querySelectorAll("h1, h2, h3"))
+    .filter((heading) => heading.textContent.trim().length > 0);
+
+  tocList.innerHTML = "";
+  if (tocHeadings.length < 2) {
+    toc.classList.remove("visible");
+    return;
+  }
+
+  tocHeadings.forEach((heading, index) => {
+    if (!heading.id) heading.id = `readr-section-${index}`;
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = `toc-item toc-${heading.tagName.toLowerCase()}`;
+    item.textContent = heading.textContent.trim();
+    item.dataset.target = heading.id;
+    item.addEventListener("click", () => {
+      const targetY = heading.getBoundingClientRect().top + window.scrollY - 92;
+      window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
+    });
+    tocList.appendChild(item);
+  });
+
+  toc.classList.add("visible");
+  requestAnimationFrame(() => requestAnimationFrame(updateActiveTocItem));
+}
+
+function updateActiveTocItem() {
+  if (!tocHeadings.length) return;
+  let active = tocHeadings[0];
+  for (const heading of tocHeadings) {
+    if (heading.getBoundingClientRect().top <= 140) active = heading;
+    else break;
+  }
+  tocList.querySelectorAll(".toc-item").forEach((item) => {
+    item.classList.toggle("active", item.dataset.target === active.id);
+  });
+}
 
 // --- Read aloud ---
 

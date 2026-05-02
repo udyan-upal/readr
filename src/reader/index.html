@@ -31,6 +31,10 @@
       <p>Loading article…</p>
     </div>
 
+    <nav id="toc" aria-label="Table of contents">
+      <div id="toc-list"></div>
+    </nav>
+
     <div id="article-container" style="display:none">
       <div id="article-meta">
         <span id="read-time"></span>
@@ -174,6 +178,10 @@
         <button class="option-btn" data-value="large">Large</button>
       </div>
     </div>
+
+    <div class="settings-section settings-actions">
+      <button id="settings-default" type="button">Back to default</button>
+    </div>
   </div>
 
   <!-- Chat panel -->
@@ -188,7 +196,11 @@
       </div>
       <form id="chat-form">
         <textarea id="chat-input" rows="3" placeholder="Ask about this article..."></textarea>
-        <button id="chat-send" type="submit">Send</button>
+        <button id="chat-send" type="submit" aria-label="Send message" title="Send message">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3.7 20.3 21 12 3.7 3.7 3 10.2l10.2 1.8L3 13.8l.7 6.5Z" />
+          </svg>
+        </button>
       </form>
     </div>
   </div>
