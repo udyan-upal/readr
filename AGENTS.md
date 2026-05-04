@@ -74,3 +74,5 @@ CLERK_SECRET_KEY=...
 - **Speed:** `rate` (e.g. `"+50%"`) is sent to the TTS API so Microsoft generates audio + boundaries at the chosen speed. Client-side `playbackRate` is NOT used.
 - **Note popover positioning:** uses `position: fixed` derived from `pageContainerRef.getBoundingClientRect()` to escape the PDF canvas stacking context and avoid overlapping the sidebar.
 - **All routes use `export const runtime = "nodejs"`** — edge runtime is incompatible with `msedge-tts`.
+
+
