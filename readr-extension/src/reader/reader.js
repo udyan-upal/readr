@@ -1355,6 +1355,62 @@ async function requestAi(payload, handleResponse, signal) {
   throw lastError;
 }
 
+async function readAiStream(response, onUpdate) {
+  if (!response.body) throw new Error("AI provider returned no response body");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let text = "";
+  let streamComplete = false;
+
+  const processLine = (line) => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) return false;
+    const data = trimmed.slice(5).trim();
+    if (data === "[DONE]") return true;
+
+    let parsed;
+    try {
+      parsed = JSON.parse(data);
+    } catch {
+      return false;
+    }
+    if (parsed.error) {
+      throw new Error(parsed.error.message || "AI provider stream error");
+    }
+
+    const token = parsed.choices?.[0]?.delta?.content;
+    if (token) {
+      text += token;
+      onUpdate(text);
+    }
+    return false;
+  };
+
+  while (!streamComplete) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (processLine(line)) {
+        streamComplete = true;
+        break;
+      }
+    }
+  }
+
+  buffer += decoder.decode();
+  if (!streamComplete && buffer) processLine(buffer);
+  const result = text.trim();
+  if (!result) throw new Error("AI provider returned an empty response");
+  onUpdate(result);
+  return result;
+}
+
 chatNew.addEventListener("click", async () => {
   const articleKey = getArticleKey();
   chatRequestController?.abort();
@@ -1392,7 +1448,8 @@ chatForm.addEventListener("submit", async (e) => {
   chatGenerating = true;
   chatSend.disabled = true;
   chatNew.disabled = false;
-  const answerEl = appendChatMessage("assistant", "Thinking...");
+  const answerEl = appendChatMessage("assistant", "");
+  answerEl.classList.add("chat-streaming");
   const controller = new AbortController();
   chatRequestController?.abort();
   chatRequestController = controller;
@@ -1409,7 +1466,7 @@ chatForm.addEventListener("submit", async (e) => {
     `Article context:\n${(currentArticle.textContent || "").slice(0, 9000)}`;
 
   try {
-    const data = await requestAi({
+    const answer = await requestAi({
       messages: [
         { role: "system", content: articleContext },
         ...chatHistory,
@@ -1418,10 +1475,15 @@ chatForm.addEventListener("submit", async (e) => {
       max_tokens: 300,
       temperature: 0.35,
       top_p: 0.9,
-      stream: false,
-    }, (response) => response.json(), controller.signal);
+      stream: true,
+    }, (response) => {
+      answerEl.textContent = "";
+      return readAiStream(response, (text) => {
+        answerEl.textContent = text;
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      });
+    }, controller.signal);
     if (controller.signal.aborted || articleKey !== getArticleKey()) return;
-    const answer = data.choices?.[0]?.message?.content?.trim() || "No answer returned.";
     answerEl.textContent = answer;
     chatHistory.push(
       { role: "user", content: question },
@@ -1445,6 +1507,7 @@ chatForm.addEventListener("submit", async (e) => {
       answerEl.textContent = "Could not answer right now. Check the AI configuration and try again.";
     }
   } finally {
+    answerEl.classList.remove("chat-streaming");
     if (chatRequestController === controller) {
       chatRequestController = null;
       chatGenerating = false;
@@ -1478,44 +1541,18 @@ async function streamSummary() {
     `${(currentArticle.textContent || "").slice(0, 7000)}`;
 
   try {
-    await requestAi({
+    const summary = await requestAi({
       messages: [{ role: "user", content: prompt }],
       max_tokens: 400,
       temperature: 0.6,
       top_p: 1,
       stream: true,
-    }, async (response) => {
-      if (!response.body) throw new Error("AI provider returned no response body");
-
+    }, (response) => {
       summaryText.textContent = "";
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop(); // hold incomplete last line
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed.startsWith("data: ")) continue;
-          const data = trimmed.slice(6);
-          if (data === "[DONE]") break;
-          try {
-            const parsed = JSON.parse(data);
-            const token = parsed.choices?.[0]?.delta?.content;
-            if (token) summaryText.textContent += token;
-          } catch {}
-        }
-      }
+      return readAiStream(response, (text) => { summaryText.textContent = text; });
     }, controller.signal);
     if (controller.signal.aborted || articleKey !== getArticleKey()) return;
-    const summary = summaryText.textContent.trim();
-    if (!summary) throw new Error("AI provider returned an empty summary");
+    summaryText.textContent = summary;
     if (articleKey) {
       try {
         await updateArticleAi(articleKey, { summary, summaryUpdatedAt: Date.now() });

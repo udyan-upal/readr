@@ -877,6 +877,13 @@ a.info-value:hover { color: var(--text-primary); }
   border-bottom-left-radius: 4px;
 }
 
+.chat-streaming::after {
+  content: "|";
+  color: var(--accent);
+  margin-left: 2px;
+  animation: cursorBlink 0.7s ease infinite;
+}
+
 #chat-form {
   display: flex;
   gap: 8px;
