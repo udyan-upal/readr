@@ -1,8 +1,21 @@
 # AGENTS.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+This repository contains the Readr web app and Chrome extension. The extension lives in
+`readr-extension/` and has its own `AGENTS.md` with more specific guidance.
+
+## Repository layout
+
+| Path | Project | Tooling |
+|------|---------|---------|
+| `/` | PDF reader web app | Next.js, npm |
+| `readr-extension/` | Article reader Chrome extension | Chrome MV3, Bun |
+
+Keep each project's dependencies and commands scoped to its directory. Do not run npm
+commands for the extension or Bun commands for the web app.
 
 ## Commands
+
+### Web app
 
 ```bash
 npm run dev      # dev server on port 3001
@@ -11,9 +24,19 @@ npm run lint     # ESLint
 npx tsc --noEmit # type-check without emitting
 ```
 
-No test suite exists.
+### Chrome extension
 
-## Environment
+Run these from `readr-extension/`:
+
+```bash
+bun run dev      # rebuild on source changes
+bun run build    # build the unpacked extension into dist/
+```
+
+Load `readr-extension/dist/` as an unpacked extension in Chrome after building. Neither
+project has a test suite; the extension also has no configured lint or type-check command.
+
+## Web app environment
 
 Required in `.env.local`:
 ```
@@ -25,7 +48,14 @@ CLERK_SECRET_KEY=...
 
 `msedge-tts` needs no API key — it uses Microsoft's public endpoint.
 
-## Architecture
+## Extension environment
+
+`readr-extension/.env.local` may define `NVIDIA_API_KEY`; see
+`readr-extension/.env.example`. The build inlines it into the extension bundle, so rebuild
+after changing it. The build succeeds without the key, but the reader's tl;dr request will
+fail at runtime.
+
+## Web app architecture
 
 **Stack:** Next.js 15 App Router · TypeScript strict · Tailwind CSS · Clerk (auth) · Supabase (storage + DB) · `pdfjs-dist` (client) · `msedge-tts` (server)
 
@@ -75,4 +105,20 @@ CLERK_SECRET_KEY=...
 - **Note popover positioning:** uses `position: fixed` derived from `pageContainerRef.getBoundingClientRect()` to escape the PDF canvas stacking context and avoid overlapping the sidebar.
 - **All routes use `export const runtime = "nodejs"`** — edge runtime is incompatible with `msedge-tts`.
 
+## Extension architecture
+
+The Chrome MV3 extension extracts readable article content from the active tab and opens it
+in a dedicated reader tab.
+
+1. `readr-extension/src/popup/popup.js` injects the content extractor into the active tab.
+2. `readr-extension/src/content/extractor.js` uses `@mozilla/readability` and sends an
+   `ARTICLE_EXTRACTED` message.
+3. `readr-extension/src/background/service_worker.js` stores the article or error in
+   `chrome.storage.session` and opens the reader.
+4. `readr-extension/src/reader/reader.js` renders the article and persists settings and
+   annotations in `chrome.storage.local`.
+
+`readr-extension/build.ts` is the source of truth for bundled entrypoints and copied assets.
+Do not edit generated files in `readr-extension/dist/`; edit `src/`, `manifest.json`, or
+`icons/` and rebuild instead.
 
