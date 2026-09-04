@@ -1,0 +1,48 @@
+{
+	"root": true,
+	"extends": ["@boilerplate/biome"],
+	"files": {
+		"includes": [
+			"**",
+			"!**/dist",
+			"!**/node_modules",
+			"!**/.next",
+			"!apps/auth/drizzle",
+			"!apps/readr/next-env.d.ts",
+			"!.claude",
+			"!.mcp.json"
+		]
+	},
+	"overrides": [
+		{
+			"includes": ["apps/**", "packages/logger/**"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "error"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["apps/auth/**"],
+			"javascript": {
+				"parser": {
+					"unsafeParameterDecoratorsEnabled": true
+				}
+			}
+		},
+		{
+			"includes": ["packages/readr-extension/**"],
+			"linter": {
+				"enabled": false
+			},
+			"formatter": {
+				"enabled": false
+			},
+			"assist": {
+				"enabled": false
+			}
+		}
+	]
+}

@@ -1,0 +1,368 @@
+###############################################################################
+# apps/api.rest — endpoint catalog for the @boilerplate/auth service
+#
+# Stateless bearer-only API: no cookies are ever set. Authentication is
+# `Authorization: Bearer <token>` with one of two token kinds:
+#   - @bearer — the opaque session token from the `set-auth-token` response
+#     header. Used for Better-Auth endpoints (sign-out, get-session, ...).
+#     Short-lived minting credential; killed by sign-out.
+#   - @jwe    — the encrypted JWE access token (dir + A256GCM, 5 parts).
+#     Used for this service's own routes (/api/me) and any downstream
+#     resource service sharing JWT_ENCRYPTION_KEY. Stateless: valid until
+#     exp (15 min default), no server-side revocation.
+#
+# How to use (VS Code REST Client):
+#   1. `pnpm --filter @boilerplate/auth dev` (listens on PORT from apps/auth/.env)
+#   2. Open this file, run "Sign up" then "Sign in (email)".
+#   3. From the sign-in response headers, copy `set-auth-token` -> @bearer.
+#   4. Run "Issue a JWE" (#34); copy `token` from the response body -> @jwe.
+#      (The `set-auth-jwt` header of #7 get-session carries the same JWE.)
+#   5. Hit any protected request below; override @baseUrl to point at staging.
+#
+# Variables (REST Client `@var = value` syntax):
+#   @baseUrl      — root URL of the auth service
+#   @email        — local dev email used for sign-up / sign-in
+#   @password     — local dev password
+#   @name         — display name for sign-up
+#   @bearer       — session token (from `set-auth-token` header); set after sign-in
+#   @jwe          — JWE access token (from #34 /token body); set after minting
+#   @resetToken   — token from the request-password-reset email link
+#   @newPassword  — replacement password for change-password / reset-password
+###############################################################################
+
+@baseUrl      = http://localhost:3000
+@email        = user@example.com
+@password     = sup3rsecret-password
+@name         = Test User
+@bearer       =
+@jwe          =
+@resetToken   =
+@newPassword  = n3w-sup3rsecret-password
+
+
+###############################################################################
+# App routes
+###############################################################################
+
+### 1. Health check
+# GET /health — defined in apps/auth/src/http/controllers/health.controller.ts
+GET {{baseUrl}}/health
+
+### 2. Current user (JWE-protected)
+# GET /api/me — defined in apps/auth/src/http/controllers/me.controller.ts
+# Verified statelessly by decrypting the Bearer JWE (exp/iss/aud checks);
+# no session or database lookup. Bearer session tokens are rejected here.
+GET {{baseUrl}}/api/me
+Authorization: Bearer {{jwe}}
+
+
+###############################################################################
+# Better-Auth — account lifecycle (mounted under /api/auth/*)
+# See apps/auth/src/auth/auth.service.ts: emailAndPassword enabled + jwt() + bearer()
+###############################################################################
+
+### 3. Sign up with email + password
+# POST /api/auth/sign-up/email — body: { email, password, name?, image?, callbackURL?, rememberMe? }
+# Response carries `set-auth-token` (auto sign-in) but never a Set-Cookie.
+POST {{baseUrl}}/api/auth/sign-up/email
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "name": "{{name}}"
+}
+
+### 4. Sign in with email + password
+# POST /api/auth/sign-in/email — body: { email, password, callbackURL?, rememberMe? }
+# Returns the session token in the `set-auth-token` response header (copy to
+# @bearer). No cookie is set.
+POST {{baseUrl}}/api/auth/sign-in/email
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### 5. Sign in with a social provider
+# POST /api/auth/sign-in/social — body: { provider, callbackURL?, idToken?, ... }
+# No social providers are configured in apps/auth/src/auth/auth.service.ts; this will
+# return 400 until one is added (e.g. `socialProviders: { google: {...} }`).
+POST {{baseUrl}}/api/auth/sign-in/social
+Content-Type: application/json
+
+{
+  "provider": "google",
+  "callbackURL": "http://localhost:3000"
+}
+
+### 6. Sign out
+# POST /api/auth/sign-out — revokes the @bearer session. Already-minted JWEs
+# stay valid until they expire (stateless: no server-side revocation).
+# (Better-Auth POSTs need a JSON content-type even with an empty body.)
+POST {{baseUrl}}/api/auth/sign-out
+Content-Type: application/json
+Authorization: Bearer {{bearer}}
+
+{}
+
+
+###############################################################################
+# Better-Auth — session
+###############################################################################
+
+### 7. Get current session
+# GET|POST /api/auth/get-session — works with either method. The `set-auth-jwt`
+# response header (jwt() plugin) carries a 5-part JWE — same token as #34.
+GET {{baseUrl}}/api/auth/get-session
+Authorization: Bearer {{bearer}}
+
+### 8. List active sessions
+# GET /api/auth/list-sessions — session-protected.
+GET {{baseUrl}}/api/auth/list-sessions
+Authorization: Bearer {{bearer}}
+
+### 9. Revoke a single session
+# POST /api/auth/revoke-session — body: { token: "<session token>" } (the
+# @bearer value of the session to revoke, not the one being sent).
+POST {{baseUrl}}/api/auth/revoke-session
+Content-Type: application/json
+Authorization: Bearer {{bearer}}
+
+{
+  "token": "{{bearer}}"
+}
+
+### 10. Revoke all sessions
+# POST /api/auth/revoke-sessions — session-protected; revokes every session
+# belonging to the current user. (Empty JSON body required.)
+POST {{baseUrl}}/api/auth/revoke-sessions
+Content-Type: application/json
+Authorization: Bearer {{bearer}}
+
+{}
+
+### 11. Revoke every other session (keep the current one)
+# POST /api/auth/revoke-other-sessions — session-protected. (Empty JSON body required.)
+POST {{baseUrl}}/api/auth/revoke-other-sessions
+Content-Type: application/json
+Authorization: Bearer {{bearer}}
+
+{}
+
+### 12. Update the current session
+# POST /api/auth/update-session — body: any key/value pairs allowed by session config.
+POST {{baseUrl}}/api/auth/update-session
+Content-Type: application/json
+Authorization: Bearer {{bearer}}
+
+{}
+
+
+###############################################################################
+# Better-Auth — password
+###############################################################################
+
+### 13. Request a password reset email
+# POST /api/auth/request-password-reset — body: { email, redirectTo? }
+# Requires `emailAndPassword.sendResetPassword` to be configured; with the
+# current auth setup that callback is unset, so this will return 400.
+POST {{baseUrl}}/api/auth/request-password-reset
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "redirectTo": "http://localhost:3000/reset-password"
+}
+
+### 14. Password reset email link target
+# GET /api/auth/reset-password/:token?callbackURL=... — the URL the reset
+# email points at; the server validates the token and redirects to callbackURL
+# with `?token=...`. Not usually called by hand.
+GET {{baseUrl}}/api/auth/reset-password/{{resetToken}}?callbackURL=http://localhost:3000/done
+
+### 15. Complete password reset
+# POST /api/auth/reset-password — body: { newPassword, token? } (token via body or query).
+POST {{baseUrl}}/api/auth/reset-password
+Content-Type: application/json
+
+{
+  "newPassword": "{{newPassword}}",
+  "token": "{{resetToken}}"
+}
+
+### 16. Verify the current password
+# POST /api/auth/verify-password — body: { password }. Session-protected.
+POST {{baseUrl}}/api/auth/verify-password
+Content-Type: application/json
+Authorization: Bearer {{bearer}}
+
+{
+  "password": "{{password}}"
+}
+
+### 17. Change password
+# POST /api/auth/change-password — body: { newPassword, currentPassword, revokeOtherSessions? }.
+POST {{baseUrl}}/api/auth/change-password
+Content-Type: application/json
+Authorization: Bearer {{bearer}}
+
+{
+  "newPassword": "{{newPassword}}",
+  "currentPassword": "{{password}}",
+  "revokeOtherSessions": true
+}
+
+
+###############################################################################
+# Better-Auth — user account
+###############################################################################
+
+### 18. Update the current user
+# POST /api/auth/update-user — body: any allowed user fields (name, image, etc.).
+# `email` updates are rejected here; use /change-email instead.
+POST {{baseUrl}}/api/auth/update-user
+Content-Type: application/json
+Authorization: Bearer {{bearer}}
+
+{
+  "name": "{{name}}"
+}
+
+### 19. Change email
+# POST /api/auth/change-email — body: { newEmail, callbackURL? }.
+# Requires `user.changeEmail.enabled` and a verification-email handler.
+POST {{baseUrl}}/api/auth/change-email
+Content-Type: application/json
+Authorization: Bearer {{bearer}}
+
+{
+  "newEmail": "new-{{email}}",
+  "callbackURL": "http://localhost:3000"
+}
+
+### 20. Send verification email
+# POST /api/auth/send-verification-email — body: { email, callbackURL? }.
+# Requires `emailVerification.sendVerificationEmail` to be configured.
+POST {{baseUrl}}/api/auth/send-verification-email
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "callbackURL": "http://localhost:3000"
+}
+
+### 21. Verify email
+# GET /api/auth/verify-email?token=...&callbackURL=... — link target from the
+# verification email. Paste the token out of your inbox/dev mailbox.
+GET {{baseUrl}}/api/auth/verify-email?token=&callbackURL=http://localhost:3000
+
+### 22. Delete the current user
+# POST /api/auth/delete-user — body: { password?, token?, callbackURL? }.
+# Session-protected.
+POST {{baseUrl}}/api/auth/delete-user
+Content-Type: application/json
+Authorization: Bearer {{bearer}}
+
+{
+  "password": "{{password}}",
+  "callbackURL": "http://localhost:3000"
+}
+
+### 23. Delete-user callback (OAuth providers only)
+# GET /api/auth/delete-user/callback — used by social account deletion flow.
+GET {{baseUrl}}/api/auth/delete-user/callback
+
+### 24. List linked accounts
+# GET /api/auth/list-accounts — session-protected.
+GET {{baseUrl}}/api/auth/list-accounts
+Authorization: Bearer {{bearer}}
+
+### 25. Account info from a provider
+# GET /api/auth/account-info?providerId=...&accountId? — fetches provider-side
+# account info for a linked account.
+GET {{baseUrl}}/api/auth/account-info?providerId=google
+Authorization: Bearer {{bearer}}
+
+### 26. Link a social account
+# POST /api/auth/link-social — body: { provider, callbackURL?, idToken? }.
+POST {{baseUrl}}/api/auth/link-social
+Content-Type: application/json
+Authorization: Bearer {{bearer}}
+
+{
+  "provider": "google",
+  "callbackURL": "http://localhost:3000"
+}
+
+### 27. Unlink a social account
+# POST /api/auth/unlink-account — body: { providerId, accountId? }.
+POST {{baseUrl}}/api/auth/unlink-account
+Content-Type: application/json
+Authorization: Bearer {{bearer}}
+
+{
+  "providerId": "google"
+}
+
+
+###############################################################################
+# Better-Auth — OAuth / token endpoints
+###############################################################################
+
+### 28. OAuth callback
+# GET|POST /api/auth/callback/:id — used by social providers as their
+# redirect_uri (e.g. http://localhost:3000/api/auth/callback/google).
+GET {{baseUrl}}/api/auth/callback/google?code=&state=
+
+### 29. Get a provider access token
+# POST /api/auth/get-access-token — body: { providerId, accountId?, userId? }.
+POST {{baseUrl}}/api/auth/get-access-token
+Content-Type: application/json
+Authorization: Bearer {{bearer}}
+
+{
+  "providerId": "google"
+}
+
+### 30. Refresh a provider access token
+# POST /api/auth/refresh-token — body: { providerId, accountId?, userId? }.
+POST {{baseUrl}}/api/auth/refresh-token
+Content-Type: application/json
+Authorization: Bearer {{bearer}}
+
+{
+  "providerId": "google"
+}
+
+
+###############################################################################
+# Better-Auth — misc
+###############################################################################
+
+### 31. OK probe
+# GET /api/auth/ok — lightweight health probe under the auth namespace.
+GET {{baseUrl}}/api/auth/ok
+
+### 32. Error probe
+# GET /api/auth/error — renders Better-Auth's default error page.
+GET {{baseUrl}}/api/auth/error
+
+
+###############################################################################
+# JWT plugin (added in apps/auth/src/auth/auth.service.ts)
+###############################################################################
+
+### 33. JWKS — public signing keys (disabled)
+# GET /api/auth/jwks — returns 404 in JWE mode. Access tokens are encrypted
+# with the shared JWT_ENCRYPTION_KEY (dir + A256GCM), so there are no public
+# keys: consumers decrypt with the shared key instead of fetching a JWKS.
+GET {{baseUrl}}/api/auth/jwks
+
+### 34. Issue a JWE for the current session
+# GET /api/auth/token — session-protected; returns { token: "<5-part JWE>" }.
+# Copy the token into @jwe. Valid until exp (15 min default); sign-out does
+# not revoke it.
+GET {{baseUrl}}/api/auth/token
+Authorization: Bearer {{bearer}}
