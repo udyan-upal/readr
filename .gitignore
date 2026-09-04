@@ -6,5 +6,6 @@ dist
 .env.local
 .DS_Store
 *.log
+*.tsbuildinfo
 .vscode
 .idea
