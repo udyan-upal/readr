@@ -33,6 +33,32 @@
 			}
 		},
 		{
+			"includes": ["apps/readr/**"],
+			"linter": {
+				"rules": {
+					"a11y": "off",
+					"complexity": {
+						"useOptionalChain": "off"
+					},
+					"correctness": {
+						"useExhaustiveDependencies": "off"
+					},
+					"performance": {
+						"noImgElement": "warn"
+					},
+					"style": {
+						"noNonNullAssertion": "off",
+						"noDescendingSpecificity": "off"
+					},
+					"suspicious": {
+						"noArrayIndexKey": "off",
+						"noAssignInExpressions": "off",
+						"noUnknownAtRules": "off"
+					}
+				}
+			}
+		},
+		{
 			"includes": ["packages/readr-extension/**"],
 			"linter": {
 				"enabled": false

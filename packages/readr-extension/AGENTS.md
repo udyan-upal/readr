@@ -1,10 +1,11 @@
 # AGENTS.md
 
 ## Commands
-- Use Bun; `bun.lock` is the lockfile and `package.json` scripts call Bun directly.
+- Dependencies install from the repo root via pnpm (this is a workspace package; there is no separate lockfile).
+- The build runs under Bun; `package.json` scripts call Bun directly.
 - Build with `bun run build`; this bundles JS and copies static assets into `dist/`.
 - Dev watch is `bun run dev`, which runs `bun --watch run build.ts`.
-- There are no configured test, lint, format, or typecheck scripts in this repo.
+- There are no configured test, lint, format, or typecheck scripts in this package.
 
 ## Extension Flow
 - This is a Chrome MV3 extension; load the unpacked extension from `dist/` after building.

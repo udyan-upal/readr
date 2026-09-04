@@ -8,10 +8,10 @@
 	"scripts": {
 		"preinstall": "npx only-allow pnpm",
 		"prepare": "husky",
-		"build:apps": "pnpm --filter @boilerplate/auth run build",
+		"build:apps": "pnpm --filter @boilerplate/auth run build && pnpm --filter @boilerplate/readr run build",
 		"build:packages": "pnpm --filter @boilerplate/shared run build && pnpm --filter @boilerplate/logger run build && pnpm --filter @boilerplate/telemetry run build && pnpm --filter @boilerplate/validation run build",
 		"build": "pnpm run build:packages && pnpm run build:apps",
-		"dev": "concurrently -n auth -c blue \"pnpm --filter @boilerplate/auth dev\"",
+		"dev": "concurrently -n auth,readr -c blue,green \"pnpm --filter @boilerplate/auth dev\" \"pnpm --filter @boilerplate/readr dev\"",
 		"format": "biome format --fix .",
 		"lint": "pnpm run --parallel lint",
 		"lint:fix": "pnpm run --parallel lint:fix",
