@@ -1,0 +1,39 @@
+packages:
+  - apps/*
+  - tools/*
+  - packages/*
+
+# Dependencies that native/postinstall scripts MUST run for
+allowBuilds:
+  unrs-resolver: true
+  better-sqlite3: true
+  esbuild: true
+  # protobufjs postinstall only fixes pbjs CLI symlinks; not needed for OTel library use
+  protobufjs: false
+  # pdfjs-dist optional server-side natives — unused (canvas is webpack-aliased off)
+  canvas: false
+  sharp: false
+  # msedge-tts preinstall is only its own "only-allow pnpm" check; ships prebuilt JS
+  msedge-tts: false
+
+# Suppress expected peer-range warnings (better-auth 1.7.2 peers better-sqlite3 ^12)
+peerDependencyRules:
+  allowedVersions:
+    better-sqlite3: "^13.0.3"
+
+# Single source of truth for versions shared across multiple packages.
+# Packages reference these with "catalog:" in their package.json.
+catalog:
+  typescript: ^7.0.2
+  rimraf: 6.1.3
+  reflect-metadata: 0.2.2
+  "@types/node": 26.4.0
+  "@biomejs/biome": ^2.5.11
+  "@opentelemetry/api": 1.9.1
+
+# Force specific versions monorepo-wide (security pins)
+overrides:
+  ws: 8.21.0
+
+minimumReleaseAge: 2880 # minutes a release must age before installable (supply-chain protection)
+dedupeDirectDeps: true

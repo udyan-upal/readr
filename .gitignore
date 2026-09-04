@@ -1,11 +1,29 @@
-node_modules
-.next
-out
-dist
-.env
-.env.local
-.DS_Store
-*.log
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+.next/
+out/
+
+# TypeScript
 *.tsbuildinfo
-.vscode
-.idea
+
+# Environment
+.env*
+!.env.example
+
+# Runtime data (sqlite)
+apps/auth/data/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/

@@ -1,0 +1,55 @@
+{
+	"name": "@boilerplate/telemetry",
+	"version": "0.0.1",
+	"type": "module",
+	"license": "MIT",
+	"sideEffects": false,
+	"engines": {
+		"node": ">=20.18.1"
+	},
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./src/index.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"publishConfig": {
+		"access": "public",
+		"exports": {
+			".": {
+				"types": "./dist/index.d.ts",
+				"default": "./dist/index.js"
+			}
+		}
+	},
+	"scripts": {
+		"build": "tsc --build",
+		"dev": "tsc --build --watch",
+		"typeCheck": "tsc --noEmit",
+		"lint": "biome check ./src",
+		"lint:fix": "biome check --fix ./src",
+		"clean": "rimraf ./dist"
+	},
+	"dependencies": {
+		"@opentelemetry/api": "catalog:",
+		"@opentelemetry/exporter-metrics-otlp-http": "0.222.0",
+		"@opentelemetry/exporter-trace-otlp-http": "0.222.0",
+		"@opentelemetry/instrumentation-http": "0.222.0",
+		"@opentelemetry/instrumentation-runtime-node": "0.35.0",
+		"@opentelemetry/instrumentation-undici": "0.32.0",
+		"@opentelemetry/resources": "2.11.0",
+		"@opentelemetry/sdk-metrics": "2.11.0",
+		"@opentelemetry/sdk-node": "0.222.0",
+		"@opentelemetry/semantic-conventions": "1.43.0"
+	},
+	"devDependencies": {
+		"@boilerplate/tsconfig": "workspace:*",
+		"rimraf": "catalog:"
+	}
+}

@@ -1,0 +1,54 @@
+{
+	"name": "@boilerplate/auth",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"------": "----- pre-build  scripts -----",
+		"build": "tsc --build",
+		"typeCheck": "tsc --noEmit",
+		"lint": "biome check ./src ./tests",
+		"lint:fix": "biome check --fix ./src ./tests",
+
+		"----------": "----- dev scripts -----",
+		"dev": "tsx watch src/index.ts",
+		"start": "tsx src/index.ts",
+
+		"-----------": "----- test scripts -----",
+		"test": "vitest run",
+		"test:watch": "vitest",
+
+		"-----": "----- db scripts (drizzle-kit) -----",
+		"--------": "----- pnpm run db:generate <Migration name> -----",
+		"db:generate": "drizzle-kit generate --config ./drizzle.config.ts --name",
+		"db:migrate": "drizzle-kit migrate --config ./drizzle.config.ts",
+		"db:push": "drizzle-kit push --config ./drizzle.config.ts",
+		"db:studio": "drizzle-kit studio --config ./drizzle.config.ts",
+		"db:check": "drizzle-kit check --config ./drizzle.config.ts",
+
+		"-------": "----- clean scripts -----",
+		"clean": "rimraf ../../dist/apps/auth"
+	},
+	"dependencies": {
+		"@better-auth/drizzle-adapter": "1.7.2",
+		"@better-auth/passkey": "1.7.2",
+		"@hono/node-server": "2.1.1",
+		"@boilerplate/logger": "workspace:*",
+		"@boilerplate/telemetry": "workspace:*",
+		"better-auth": "1.7.2",
+		"better-sqlite3": "13.0.3",
+		"drizzle-orm": "0.45.2",
+		"hono": "4.13.5",
+		"inversify": "8.2.3",
+		"jose": "6.2.10",
+		"reflect-metadata": "catalog:",
+		"zod": "4.5.4"
+	},
+	"devDependencies": {
+		"@boilerplate/tsconfig": "workspace:*",
+		"@types/better-sqlite3": "9.6.0",
+		"drizzle-kit": "0.31.10",
+		"rimraf": "catalog:",
+		"vitest": "4.1.11"
+	}
+}

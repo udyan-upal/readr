@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # One root entry covers the whole pnpm workspace; per-package entries
+  # rotted here pointing at dirs that do not exist.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+    versioning-strategy: increase
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
