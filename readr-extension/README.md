@@ -18,6 +18,17 @@ Set `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` in `.env.local` to use OpenRoute
 article summaries and chat. `NVIDIA_API_KEY` is optional and provides a fallback if the
 OpenRouter request fails. NVIDIA is used directly when OpenRouter is not fully configured.
 
+Set `EDGE_TTS_API_URL=http://localhost:3001/api/tts` for read-aloud during local development.
+The Next.js web app at the repository root must remain running on port `3001` while using
+read-aloud:
+
+```sh
+# Run from the repository root in a separate terminal
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
 ## Commands
 
 ```sh
