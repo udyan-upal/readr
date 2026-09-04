@@ -4,17 +4,19 @@
 
 /* ── Design tokens ─────────────────────────────────────── */
 :root {
-  --bg: #F7F6F2;
-  --surface: #FFFFFF;
-  --surface-2: #FDFCFA;
-  --border: #E8E3DA;
-  --border-subtle: #F0EDE7;
-  --text-1: #1C1917;
-  --text-2: #57534E;
-  --text-3: #A8A29E;
-  --accent: #3B3BB7;
-  --accent-h: #2E2E96;
-  --accent-s: #EBEBF8;
+  /* Sepia theme */
+  --bg: #F4ECD8;
+  --surface: #FBF4E3;
+  --surface-2: #F7EED8;
+  --border: #E4D6B8;
+  --border-subtle: #EEE3CB;
+  --text-1: #2F241B;
+  --text-2: #5A4635;
+  --text-3: #8B735D;
+  --accent: #8B5A2B;
+  --accent-h: #6F4620;
+  --accent-s: #F1E2C6;
+  --accent-rgb: 139, 90, 43;
   --danger: #DC2626;
   --r: 10px;
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.04);
@@ -23,17 +25,19 @@
 }
 
 .dark {
-  --bg: #100F0F;
-  --surface: #1C1917;
-  --surface-2: #1A1916;
-  --border: #2D2A26;
-  --border-subtle: #252220;
-  --text-1: #F5F0E8;
-  --text-2: #A8A29E;
-  --text-3: #57534E;
-  --accent: #5B5BD4;
-  --accent-h: #7070E0;
-  --accent-s: #1A1A38;
+  /* Sepia dark */
+  --bg: #15110C;
+  --surface: #1D1710;
+  --surface-2: #231C14;
+  --border: #3A2D1F;
+  --border-subtle: #2E2419;
+  --text-1: #F5E9D4;
+  --text-2: #D0BEA1;
+  --text-3: #9A856E;
+  --accent: #D6A15C;
+  --accent-h: #E0B370;
+  --accent-s: #2A1F13;
+  --accent-rgb: 214, 161, 92;
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
   --shadow: 0 4px 16px rgba(0,0,0,0.35);
   --shadow-lg: 0 20px 56px rgba(0,0,0,0.5);
@@ -45,7 +49,7 @@ html, body { height: 100%; }
 body {
   background: var(--bg);
   color: var(--text-1);
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+  font-family: Georgia, "Times New Roman", Times, serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -91,10 +95,10 @@ body {
   transition: background-color 200ms ease 180ms;
 }
 .pdf-word.done {
-  background-color: rgba(255, 255, 255, 0.55);
+  background-color: color-mix(in srgb, var(--surface) 55%, transparent);
 }
 .dark .pdf-word.done {
-  background-color: rgba(16, 15, 15, 0.55);
+  background-color: color-mix(in srgb, var(--bg) 55%, transparent);
 }
 
 /* Sliding highlight pill */
@@ -103,8 +107,8 @@ body {
   left: 0; top: 0;
   width: 0; height: 0;
   border-radius: 3px;
-  background: rgba(91, 94, 255, 0.18);
-  box-shadow: 0 0 0 1.5px rgba(91, 94, 255, 0.35);
+  background: rgba(var(--accent-rgb), 0.16);
+  box-shadow: 0 0 0 1.5px rgba(var(--accent-rgb), 0.35);
   mix-blend-mode: multiply;
   pointer-events: none;
   opacity: 0;
@@ -119,8 +123,8 @@ body {
 .pdf-highlight.visible { opacity: 1; }
 .dark .pdf-highlight {
   mix-blend-mode: screen;
-  background: rgba(123, 127, 255, 0.22);
-  box-shadow: 0 0 0 1.5px rgba(155, 158, 255, 0.4);
+  background: rgba(var(--accent-rgb), 0.22);
+  box-shadow: 0 0 0 1.5px rgba(var(--accent-rgb), 0.40);
 }
 
 /* ── Notes layer ───────────────────────────────────────── */
@@ -182,7 +186,7 @@ body {
   width: 15px;
   height: 15px;
   color: var(--accent);
-  filter: drop-shadow(0 1px 2px rgba(91,94,255,0.25));
+  filter: drop-shadow(0 1px 2px rgba(var(--accent-rgb), 0.25));
   transition: color 0.15s, transform 0.15s;
 }
 .note-marker:hover .note-marker-icon {
@@ -261,7 +265,7 @@ body {
 }
 .note-btn-save:hover:not(:disabled) {
   background: var(--accent-h);
-  box-shadow: 0 2px 8px rgba(91,94,255,0.3);
+  box-shadow: 0 2px 8px rgba(var(--accent-rgb), 0.30);
 }
 .note-btn-save:disabled { background: #A5A7FF; }
 .note-btn-delete {

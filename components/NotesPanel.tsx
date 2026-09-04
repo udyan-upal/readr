@@ -53,7 +53,7 @@ export default function NotesPanel({ notes, currentPage, onNavigate, onEdit, onD
 
       {notes.length === 0 ? (
         <div className="notes-panel-empty">
-          No notes yet. Click the <FaNotesMedical style={{ display: "inline", verticalAlign: "middle", color: "#3b82f6" }} /> icon on any line to add a note.
+          No notes yet. Click the <FaNotesMedical style={{ display: "inline", verticalAlign: "middle", color: "var(--accent)" }} /> icon on any line to add a note.
         </div>
       ) : (
         <div className="notes-panel-list">

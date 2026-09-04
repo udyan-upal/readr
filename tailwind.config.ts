@@ -14,7 +14,7 @@ export default {
         accent: { DEFAULT: "#5B5EFF", dark: "#4244CC", subtle: "#EEEFFF" },
       },
       fontFamily: {
-        sans: ["-apple-system", "BlinkMacSystemFont", '"Inter"', '"Segoe UI"', "sans-serif"],
+        sans: ["Georgia", '"Times New Roman"', "Times", "serif"],
       },
       boxShadow: {
         card: "0 2px 8px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)",

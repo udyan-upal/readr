@@ -473,12 +473,16 @@ export default function PdfViewer({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 px-4 py-2 text-sm">
+      <div
+        className="flex items-center justify-between border-b px-4 py-2 text-sm"
+        style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--text-2)" }}
+      >
         <button
           type="button"
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage <= 1}
-          className="px-3 py-1 rounded bg-gray-100 dark:bg-gray-800 disabled:opacity-40"
+          className="px-3 py-1 rounded disabled:opacity-40"
+          style={{ background: "var(--bg)", color: "var(--text-1)", border: "1px solid var(--border)" }}
         >
           ← Prev
         </button>
@@ -493,7 +497,8 @@ export default function PdfViewer({
               const n = Number(e.target.value);
               if (n >= 1 && n <= numPages) onPageChange(n);
             }}
-            className="w-16 px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-transparent text-center"
+            className="w-16 px-2 py-1 rounded border bg-transparent text-center"
+            style={{ borderColor: "var(--border)", color: "var(--text-1)" }}
           />
           <span>/ {numPages || "—"}</span>
         </div>
@@ -501,18 +506,19 @@ export default function PdfViewer({
           type="button"
           onClick={() => onPageChange(Math.min(numPages, currentPage + 1))}
           disabled={currentPage >= numPages}
-          className="px-3 py-1 rounded bg-gray-100 dark:bg-gray-800 disabled:opacity-40"
+          className="px-3 py-1 rounded disabled:opacity-40"
+          style={{ background: "var(--bg)", color: "var(--text-1)", border: "1px solid var(--border)" }}
         >
           Next →
         </button>
       </div>
 
-      <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-950 p-6 flex justify-center items-start">
-        {loading && <div className="text-gray-500">Loading PDF…</div>}
+      <div className="flex-1 overflow-auto p-6 flex justify-center items-start" style={{ background: "var(--bg)" }}>
+        {loading && <div style={{ color: "var(--text-3)" }}>Loading PDF…</div>}
         <div
           ref={pageContainerRef}
-          className="relative shadow-lg rounded bg-white"
-          style={{ width: canvasSize.cssW, height: canvasSize.cssH }}
+          className="relative shadow-lg rounded"
+          style={{ width: canvasSize.cssW, height: canvasSize.cssH, background: "var(--surface)" }}
         >
           <canvas ref={canvasRef} className="block rounded" />
           <div
@@ -644,7 +650,10 @@ export default function PdfViewer({
           )}
 
           {!loading && pageWords.length === 0 && noTextMessage && (
-            <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-gray-500 bg-white/70 dark:bg-black/50">
+            <div
+              className="absolute inset-0 flex items-center justify-center p-6 text-center"
+              style={{ color: "var(--text-3)", background: "color-mix(in srgb, var(--surface) 78%, transparent)" }}
+            >
               {noTextMessage}
             </div>
           )}

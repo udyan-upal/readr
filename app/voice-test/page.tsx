@@ -107,31 +107,31 @@ export default function VoiceTestPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0f0f0f", color: "#e5e5e5", fontFamily: "monospace", padding: "32px 24px", maxWidth: 780, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4, color: "#fff" }}>Voice Test</h1>
-      <p style={{ fontSize: 12, color: "#555", marginBottom: 28 }}>
+    <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text-1)", fontFamily: "inherit", padding: "32px 24px", maxWidth: 780, margin: "0 auto" }}>
+      <h1 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4, color: "var(--text-1)" }}>Voice Test</h1>
+      <p style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 28 }}>
         Dev tool — not linked from UI
-        {!voicesLoading && <span style={{ color: "#3B3BB7", marginLeft: 8 }}>{voices.length} voices loaded</span>}
+        {!voicesLoading && <span style={{ color: "var(--accent)", marginLeft: 8 }}>{voices.length} voices loaded</span>}
       </p>
 
       {/* Text */}
-      <label style={{ display: "block", fontSize: 11, color: "#666", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Text</label>
+      <label style={{ display: "block", fontSize: 11, color: "var(--text-3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Text</label>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={5}
-        style={{ width: "100%", background: "#1a1a1a", border: "1px solid #333", borderRadius: 6, color: "#e5e5e5", fontSize: 13, padding: "10px 12px", fontFamily: "inherit", resize: "vertical", outline: "none", boxSizing: "border-box" }}
+        style={{ width: "100%", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text-1)", fontSize: 13, padding: "10px 12px", fontFamily: "inherit", resize: "vertical", outline: "none", boxSizing: "border-box" }}
       />
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 16 }}>
-        <section style={{ flex: "1 1 300px", minWidth: 0, padding: 1, borderRadius: 18, background: "linear-gradient(135deg, rgba(129,140,248,0.55), rgba(59,59,183,0.18), rgba(255,255,255,0.08))", boxShadow: "0 22px 60px rgba(0,0,0,0.35)" }}>
-          <div style={{ minHeight: "100%", padding: 16, borderRadius: 17, background: "linear-gradient(180deg, rgba(31,31,42,0.96), rgba(18,18,24,0.96))", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <section style={{ flex: "1 1 300px", minWidth: 0, padding: 1, borderRadius: 18, background: "color-mix(in srgb, var(--accent-s) 65%, transparent)", boxShadow: "var(--shadow-lg)" }}>
+          <div style={{ minHeight: "100%", padding: 16, borderRadius: 17, background: "var(--surface)", border: "1px solid var(--border)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
               <div>
-                <div style={{ fontSize: 10, color: "#777", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>Voice</div>
-                <div style={{ fontSize: 14, color: "#f5f5f7", fontWeight: 700 }}>Narrator</div>
+                <div style={{ fontSize: 10, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>Voice</div>
+                <div style={{ fontSize: 14, color: "var(--text-1)", fontWeight: 700 }}>Narrator</div>
               </div>
-              <span style={{ flexShrink: 0, padding: "5px 9px", borderRadius: 999, background: "rgba(129,140,248,0.12)", border: "1px solid rgba(129,140,248,0.28)", color: "#c7d2fe", fontSize: 11 }}>
+              <span style={{ flexShrink: 0, padding: "5px 9px", borderRadius: 999, background: "var(--accent-s)", border: "1px solid var(--border)", color: "var(--text-2)", fontSize: 11 }}>
                 {voicesLoading ? "Loading" : selectedVoice?.locale ?? "Voice"}
               </span>
             </div>
@@ -141,7 +141,7 @@ export default function VoiceTestPage() {
                 value={voice}
                 onChange={(e) => setVoice(e.target.value)}
                 disabled={voicesLoading}
-                style={{ width: "100%", appearance: "none", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, color: voicesLoading ? "#666" : "#f3f4f6", fontSize: 13, padding: "13px 42px 13px 14px", fontFamily: "inherit", outline: "none", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)", cursor: voicesLoading ? "wait" : "pointer" }}
+                style={{ width: "100%", appearance: "none", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 14, color: voicesLoading ? "var(--text-3)" : "var(--text-1)", fontSize: 13, padding: "13px 42px 13px 14px", fontFamily: "inherit", outline: "none", boxShadow: "inset 0 1px 0 color-mix(in srgb, var(--surface) 70%, transparent)", cursor: voicesLoading ? "wait" : "pointer" }}
               >
                 {voicesLoading
                   ? <option>Loading voices…</option>
@@ -154,28 +154,28 @@ export default function VoiceTestPage() {
                     ))
                 }
               </select>
-              <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "#a5b4fc", pointerEvents: "none", fontSize: 14 }}>⌄</span>
+              <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-3)", pointerEvents: "none", fontSize: 14 }}>⌄</span>
             </div>
 
-            <div style={{ marginTop: 11, color: "#8f8fa3", fontSize: 11, lineHeight: 1.5, minHeight: 34 }}>
+            <div style={{ marginTop: 11, color: "var(--text-3)", fontSize: 11, lineHeight: 1.5, minHeight: 34 }}>
               {selectedVoice ? `${selectedVoice.gender} voice · ${selectedVoice.shortName}` : "Pick voice for preview playback."}
             </div>
           </div>
         </section>
 
-        <section style={{ flex: "1 1 300px", minWidth: 0, padding: 1, borderRadius: 18, background: "linear-gradient(135deg, rgba(34,197,94,0.42), rgba(59,59,183,0.22), rgba(255,255,255,0.08))", boxShadow: "0 22px 60px rgba(0,0,0,0.35)" }}>
-          <div style={{ minHeight: "100%", padding: 16, borderRadius: 17, background: "linear-gradient(180deg, rgba(25,28,26,0.96), rgba(16,18,17,0.96))", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <section style={{ flex: "1 1 300px", minWidth: 0, padding: 1, borderRadius: 18, background: "color-mix(in srgb, var(--accent-s) 55%, transparent)", boxShadow: "var(--shadow-lg)" }}>
+          <div style={{ minHeight: "100%", padding: 16, borderRadius: 17, background: "var(--surface)", border: "1px solid var(--border)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
               <div>
-                <div style={{ fontSize: 10, color: "#777", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>Speed</div>
-                <div style={{ fontSize: 14, color: "#f5f5f7", fontWeight: 700 }}>Playback pace</div>
+                <div style={{ fontSize: 10, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>Speed</div>
+                <div style={{ fontSize: 14, color: "var(--text-1)", fontWeight: 700 }}>Playback pace</div>
               </div>
-              <span style={{ flexShrink: 0, minWidth: 46, textAlign: "center", padding: "6px 10px", borderRadius: 999, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.28)", color: "#bbf7d0", fontSize: 12, fontWeight: 700 }}>
+              <span style={{ flexShrink: 0, minWidth: 46, textAlign: "center", padding: "6px 10px", borderRadius: 999, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-2)", fontSize: 12, fontWeight: 700 }}>
                 {selectedRate}
               </span>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 5, padding: 5, borderRadius: 16, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "inset 0 1px 10px rgba(0,0,0,0.25)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 5, padding: 5, borderRadius: 16, background: "var(--surface-2)", border: "1px solid var(--border)", boxShadow: "inset 0 1px 10px color-mix(in srgb, var(--border) 35%, transparent)" }}>
               {RATES.map((r) => {
                 const active = rate === r.value;
                 return (
@@ -184,7 +184,7 @@ export default function VoiceTestPage() {
                     type="button"
                     onClick={() => setRate(r.value)}
                     aria-pressed={active}
-                    style={{ minWidth: 0, padding: "10px 0", border: active ? "1px solid rgba(187,247,208,0.38)" : "1px solid transparent", borderRadius: 12, background: active ? "linear-gradient(135deg, #22c55e, #3B3BB7)" : "transparent", color: active ? "#fff" : "#8f8fa3", fontSize: 11, fontWeight: active ? 800 : 500, cursor: "pointer", fontFamily: "inherit", boxShadow: active ? "0 10px 24px rgba(34,197,94,0.18)" : "none", transition: "background 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s" }}
+                    style={{ minWidth: 0, padding: "10px 0", border: active ? "1px solid var(--accent)" : "1px solid transparent", borderRadius: 12, background: active ? "linear-gradient(135deg, var(--accent), var(--accent-h))" : "transparent", color: active ? "#fff" : "var(--text-2)", fontSize: 11, fontWeight: active ? 800 : 500, cursor: "pointer", fontFamily: "inherit", boxShadow: active ? "0 10px 24px rgba(var(--accent-rgb), 0.18)" : "none", transition: "background 0.15s, color 0.15s, box-shadow 0.15s, transform 0.15s" }}
                   >
                     {r.label}
                   </button>
@@ -192,7 +192,7 @@ export default function VoiceTestPage() {
               })}
             </div>
 
-            <div style={{ marginTop: 11, color: "#8f8fa3", fontSize: 11, lineHeight: 1.5 }}>
+            <div style={{ marginTop: 11, color: "var(--text-3)", fontSize: 11, lineHeight: 1.5 }}>
               Rate sent to TTS engine. Audio + word timings match chosen pace.
             </div>
           </div>
@@ -205,21 +205,21 @@ export default function VoiceTestPage() {
           type="button"
           onClick={() => void play()}
           disabled={loading || !text.trim()}
-          style={{ padding: "10px 24px", background: loading ? "#2a2a6a" : "#3B3BB7", color: loading ? "#9999dd" : "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit", transition: "background 0.15s" }}
+          style={{ padding: "10px 24px", background: loading ? "var(--accent-s)" : "var(--accent)", color: loading ? "var(--accent)" : "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit", transition: "background 0.15s" }}
         >
           {loading ? "Loading…" : "▶ Play"}
         </button>
         <button
           type="button"
           onClick={stop}
-          style={{ padding: "10px 18px", background: "#1a1a1a", color: "#888", border: "1px solid #333", borderRadius: 7, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}
+          style={{ padding: "10px 18px", background: "var(--surface)", color: "var(--text-2)", border: "1px solid var(--border)", borderRadius: 7, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}
         >
           ■ Stop
         </button>
       </div>
 
       {error && (
-        <div style={{ marginTop: 12, padding: "8px 12px", background: "#2a0a0a", border: "1px solid #5a1a1a", borderRadius: 6, fontSize: 12, color: "#f87171" }}>
+        <div style={{ marginTop: 12, padding: "8px 12px", background: "color-mix(in srgb, var(--danger) 10%, var(--surface))", border: "1px solid color-mix(in srgb, var(--danger) 45%, var(--border))", borderRadius: 6, fontSize: 12, color: "var(--danger)" }}>
           {error}
         </div>
       )}
@@ -227,10 +227,10 @@ export default function VoiceTestPage() {
       {/* Log */}
       {log.length > 0 && (
         <div style={{ marginTop: 32 }}>
-          <div style={{ fontSize: 11, color: "#555", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Recent plays</div>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <div style={{ fontSize: 11, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Recent plays</div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
             <thead>
-              <tr style={{ color: "#555", textAlign: "left" }}>
+              <tr style={{ color: "var(--text-3)", textAlign: "left" }}>
                 <th style={{ padding: "4px 8px", fontWeight: 500 }}>Voice</th>
                 <th style={{ padding: "4px 8px", fontWeight: 500 }}>Rate</th>
                 <th style={{ padding: "4px 8px", fontWeight: 500 }}>Latency</th>
@@ -238,10 +238,10 @@ export default function VoiceTestPage() {
             </thead>
             <tbody>
               {log.map((entry, i) => (
-                <tr key={i} style={{ borderTop: "1px solid #222" }}>
-                  <td style={{ padding: "6px 8px", color: "#ccc" }}>{entry.voice}</td>
-                  <td style={{ padding: "6px 8px", color: "#ccc" }}>{entry.rate}</td>
-                  <td style={{ padding: "6px 8px", color: i === 0 ? "#4ade80" : "#666" }}>{entry.ms}ms</td>
+                <tr key={i} style={{ borderTop: "1px solid var(--border-subtle)" }}>
+                  <td style={{ padding: "6px 8px", color: "var(--text-2)" }}>{entry.voice}</td>
+                  <td style={{ padding: "6px 8px", color: "var(--text-2)" }}>{entry.rate}</td>
+                  <td style={{ padding: "6px 8px", color: i === 0 ? "var(--accent)" : "var(--text-3)" }}>{entry.ms}ms</td>
                 </tr>
               ))}
             </tbody>
