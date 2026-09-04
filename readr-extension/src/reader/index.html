@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>readr</title>
+  <link rel="icon" href="../icons/readr.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="reader.css" />
+</head>
+<body>
+  <div id="progress-bar"></div>
+
+  <nav id="toolbar">
+    <div id="toolbar-left">
+      <span id="brand-logo">Readr</span>
+    </div>
+    <div id="toolbar-right">
+      <button class="toolbar-btn" id="btn-read">Read</button>
+      <button class="toolbar-btn" id="btn-tldr">tl;dr</button>
+      <button class="toolbar-btn" id="btn-highlights">Annotations</button>
+      <button class="toolbar-btn" id="btn-settings">Settings</button>
+      <button class="toolbar-btn" id="btn-chat">Chat</button>
+      <button class="toolbar-btn icon-btn" id="btn-info" aria-label="Article info" title="Article info">i</button>
+    </div>
+  </nav>
+
+  <main id="main">
+    <div id="loading-state">
+      <p>Loading article…</p>
+    </div>
+
+    <nav id="toc" aria-label="Table of contents">
+      <div id="toc-list"></div>
+    </nav>
+
+    <div id="article-container" style="display:none">
+      <div id="article-meta">
+        <span id="read-time"></span>
+        <span id="byline"></span>
+      </div>
+      <h1 id="article-title"></h1>
+      <div id="article-body"></div>
+    </div>
+
+    <div id="error-state" style="display:none">
+      <h2>Could not extract article</h2>
+      <p id="error-message"></p>
+    </div>
+  </main>
+
+  <!-- Floating annotation toolbar -->
+  <div id="annotation-toolbar">
+    <button class="annotation-tool-btn" data-type="highlight">
+      <span class="tool-swatch"></span>Highlight
+    </button>
+    <div class="tool-divider"></div>
+    <button class="annotation-tool-btn" data-type="strikethrough">
+      <span class="tool-swatch">S̶</span>Strike
+    </button>
+    <div class="tool-divider"></div>
+    <button class="annotation-tool-btn" data-type="comment">
+      <span class="tool-swatch"></span>Comment
+    </button>
+  </div>
+
+  <!-- Comment input popup -->
+  <div id="comment-popup">
+    <textarea id="comment-input" placeholder="Add a note…" rows="3"></textarea>
+    <div class="comment-actions">
+      <button class="comment-btn" id="comment-cancel">Cancel</button>
+      <button class="comment-btn primary" id="comment-save">Save</button>
+    </div>
+  </div>
+
+  <!-- Comment hover tooltip -->
+  <div id="annotation-tooltip"></div>
+  <div id="read-highlight-pill"></div>
+
+  <!-- Article info popover -->
+  <div id="info-popover">
+    <div class="info-row">
+      <span class="info-label">Page</span>
+      <span class="info-value" id="info-title"></span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Site</span>
+      <span class="info-value" id="site-name"></span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">URL</span>
+      <a class="info-value" id="original-url" href="#" target="_blank" rel="noopener noreferrer"></a>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Read time</span>
+      <span class="info-value" id="info-read-time"></span>
+    </div>
+    <div class="info-row" id="info-byline-row">
+      <span class="info-label">Byline</span>
+      <span class="info-value" id="info-byline"></span>
+    </div>
+  </div>
+
+  <!-- Read aloud controls -->
+  <div id="read-player" aria-label="Read aloud controls">
+    <div id="read-progress"><div id="read-progress-fill"></div></div>
+    <div id="read-player-body">
+      <div id="read-voice-group" class="read-control-group" role="group" aria-label="Voice">
+        <span class="read-control-label">Voice</span>
+        <button class="read-chip" data-voice="ava">Ava</button>
+        <button class="read-chip" data-voice="chris">Chris</button>
+        <button class="read-chip" data-voice="emma">Emma</button>
+      </div>
+
+      <div id="read-transport">
+        <button id="read-play-pause" title="Play">Play</button>
+        <button id="read-stop" title="Stop">Stop</button>
+      </div>
+
+      <div id="read-rate-group" class="read-control-group" role="group" aria-label="Speed">
+        <span class="read-control-label">Speed</span>
+        <button class="read-chip" data-rate="0.75">0.75x</button>
+        <button class="read-chip" data-rate="1">1x</button>
+        <button class="read-chip" data-rate="1.25">1.25x</button>
+        <button class="read-chip" data-rate="1.5">1.5x</button>
+      </div>
+    </div>
+    <div id="read-error"></div>
+  </div>
+
+  <!-- tl;dr panel -->
+  <div class="side-panel" id="summary-panel">
+    <div class="panel-header">
+      <span class="panel-title">tl;dr</span>
+      <button class="panel-close" id="close-summary">✕</button>
+    </div>
+    <div id="summary-body">
+      <div id="summary-content">
+        <span id="summary-text"></span><span id="summary-cursor">|</span>
+      </div>
+      <div id="summary-footer">
+        <button id="summary-regen">↻ Regenerate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings panel -->
+  <div class="side-panel" id="settings-panel">
+    <div class="panel-header">
+      <span class="panel-title">Settings</span>
+      <button class="panel-close" id="close-settings">✕</button>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-label">Theme</div>
+      <div class="btn-group" id="theme-group">
+        <button class="option-btn" data-value="light">Light</button>
+        <button class="option-btn" data-value="dark">Dark</button>
+        <button class="option-btn" data-value="sepia">Sepia</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-label">Font</div>
+      <div class="btn-group" id="font-group">
+        <button class="option-btn" data-value="inter">Inter</button>
+        <button class="option-btn" data-value="georgia">Georgia</button>
+        <button class="option-btn" data-value="mono">Mono</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-label">Size</div>
+      <div class="btn-group" id="size-group">
+        <button class="option-btn" data-value="small">Small</button>
+        <button class="option-btn" data-value="medium">Medium</button>
+        <button class="option-btn" data-value="large">Large</button>
+      </div>
+    </div>
+
+    <div class="settings-section settings-actions">
+      <button id="settings-default" type="button">Back to default</button>
+    </div>
+  </div>
+
+  <!-- Chat panel -->
+  <div class="side-panel" id="chat-panel">
+    <div class="panel-header">
+      <span class="panel-title">Chat</span>
+      <button class="panel-close" id="close-chat">✕</button>
+    </div>
+    <div id="chat-body">
+      <div id="chat-messages">
+        <div class="chat-empty">Ask a short question about this article.</div>
+      </div>
+      <form id="chat-form">
+        <textarea id="chat-input" rows="3" placeholder="Ask about this article..."></textarea>
+        <button id="chat-send" type="submit" aria-label="Send message" title="Send message">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3.7 20.3 21 12 3.7 3.7 3 10.2l10.2 1.8L3 13.8l.7 6.5Z" />
+          </svg>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Annotations panel -->
+  <div class="side-panel" id="highlights-panel">
+    <div class="panel-header">
+      <span class="panel-title">Annotations</span>
+      <button class="panel-close" id="close-highlights">✕</button>
+    </div>
+    <div id="highlights-list"></div>
+  </div>
+
+  <script src="reader.js"></script>
+</body>
+</html>
