@@ -16,7 +16,7 @@
 		"@clerk/nextjs": "^7.2.3",
 		"@supabase/supabase-js": "^2.103.3",
 		"msedge-tts": "2.0.5",
-		"next": "15.5.15",
+		"next": "16.3.4",
 		"pdfjs-dist": "4.8.69",
 		"react": "19.2.5",
 		"react-dom": "19.2.5",
