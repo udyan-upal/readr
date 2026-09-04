@@ -14,7 +14,9 @@ bun install
 cp .env.example .env.local
 ```
 
-Add `NVIDIA_API_KEY` to `.env.local` if you want the reader tl;dr feature to work.
+Set `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` in `.env.local` to use OpenRouter for
+article summaries and chat. `NVIDIA_API_KEY` is optional and provides a fallback if the
+OpenRouter request fails. NVIDIA is used directly when OpenRouter is not fully configured.
 
 ## Commands
 
@@ -44,5 +46,6 @@ bun run dev
 ## Notes
 
 - `dist/` is generated build output and should not be edited by hand.
-- Rebuild after changing `.env.local` because the API key is inlined at build time.
+- Rebuild after changing `.env.local` because provider settings and API keys are inlined at
+  build time. Keys bundled in a browser extension can be inspected by its users.
 - There are no configured test, lint, format, or typecheck scripts.

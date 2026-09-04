@@ -50,10 +50,11 @@ CLERK_SECRET_KEY=...
 
 ## Extension environment
 
-`readr-extension/.env.local` may define `NVIDIA_API_KEY`; see
-`readr-extension/.env.example`. The build inlines it into the extension bundle, so rebuild
-after changing it. The build succeeds without the key, but the reader's tl;dr request will
-fail at runtime.
+`readr-extension/.env.local` may define `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, and
+`NVIDIA_API_KEY`; see `readr-extension/.env.example`. OpenRouter is primary and NVIDIA is
+the fallback. The build inlines provider configuration into the extension bundle, so
+rebuild after changing it. The build succeeds without a provider, but summary and chat
+requests fail at runtime.
 
 ## Web app architecture
 
@@ -121,4 +122,3 @@ in a dedicated reader tab.
 `readr-extension/build.ts` is the source of truth for bundled entrypoints and copied assets.
 Do not edit generated files in `readr-extension/dist/`; edit `src/`, `manifest.json`, or
 `icons/` and rebuild instead.
-

@@ -16,8 +16,21 @@ async function build() {
   await ensureDir(`${outdir}/popup`);
   await ensureDir(`${outdir}/icons`);
 
+  const openRouterKey = process.env.OPENROUTER_API_KEY ?? "";
+  const openRouterModel = process.env.OPENROUTER_MODEL ?? "";
   const nvidiaKey = process.env.NVIDIA_API_KEY ?? "";
-  if (!nvidiaKey) console.warn("Warning: NVIDIA_API_KEY not set in .env.local");
+  const hasOpenRouter = Boolean(openRouterKey && openRouterModel);
+
+  if (!hasOpenRouter && (openRouterKey || openRouterModel)) {
+    console.warn("Warning: both OPENROUTER_API_KEY and OPENROUTER_MODEL are required");
+  }
+  if (!hasOpenRouter && !nvidiaKey) {
+    console.warn("Warning: no AI provider configured in .env.local");
+  } else if (!hasOpenRouter) {
+    console.warn("Warning: OpenRouter not configured; using NVIDIA only");
+  } else if (!nvidiaKey) {
+    console.warn("Warning: NVIDIA_API_KEY not set; OpenRouter has no fallback");
+  }
 
   const edgeTtsUrl = process.env.EDGE_TTS_API_URL ?? "http://localhost:3001/api/tts";
   if (!process.env.EDGE_TTS_API_URL) console.warn("Warning: EDGE_TTS_API_URL not set in .env.local, using default");
@@ -34,6 +47,8 @@ async function build() {
     minify: false,
     splitting: false,
     define: {
+      __OPENROUTER_API_KEY__: JSON.stringify(openRouterKey),
+      __OPENROUTER_MODEL__: JSON.stringify(openRouterModel),
       __NVIDIA_API_KEY__: JSON.stringify(nvidiaKey),
       __EDGE_TTS_API_URL__: JSON.stringify(edgeTtsUrl),
     },

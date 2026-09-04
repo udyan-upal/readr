@@ -20,6 +20,7 @@
 - The build copies `icons/readr.png` and `icons/readr-nobg.png`; extension icons are resized from `icons/readr.png` using macOS `sips`, while the reader header uses `readr-nobg.png`.
 
 ## Environment
-- `.env.example` documents `NVIDIA_API_KEY`; `.env.local` is gitignored and may contain the real key.
-- `build.ts` inlines `process.env.NVIDIA_API_KEY` as `__NVIDIA_API_KEY__`; rebuilding is required after changing the key.
-- If `NVIDIA_API_KEY` is absent, `bun run build` only warns, but the reader tl;dr API call will fail at runtime.
+- `.env.example` documents `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `NVIDIA_API_KEY`, and `EDGE_TTS_API_URL`; `.env.local` is gitignored and may contain the real values.
+- `build.ts` inlines provider configuration into the browser bundle; rebuilding is required after changing it. Bundled API keys are visible to extension users.
+- OpenRouter is the primary summary/chat provider when both OpenRouter values are set. NVIDIA is used as runtime and configuration fallback when `NVIDIA_API_KEY` is set.
+- The build warns but succeeds when no AI provider is configured; summary and chat requests then fail at runtime.
