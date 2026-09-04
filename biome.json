@@ -8,7 +8,7 @@
 			"!**/node_modules",
 			"!**/.next",
 			"!apps/auth/drizzle",
-			"!apps/readr/next-env.d.ts",
+			"!apps/web/next-env.d.ts",
 			"!.claude",
 			"!.mcp.json"
 		]
@@ -33,7 +33,7 @@
 			}
 		},
 		{
-			"includes": ["apps/readr/**"],
+			"includes": ["apps/web/**"],
 			"linter": {
 				"rules": {
 					"a11y": "off",

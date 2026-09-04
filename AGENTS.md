@@ -8,7 +8,7 @@ and shared packages. The extension lives in `apps/extension/` and has its own
 
 | Path | Project | Tooling |
 |------|---------|---------|
-| `apps/readr/` | PDF reader web app | Next.js, pnpm |
+| `apps/web/` | PDF reader web app | Next.js, pnpm |
 | `apps/auth/` | Auth API service | Hono, tsx, Drizzle |
 | `apps/extension/` | Article reader Chrome extension | Chrome MV3, Bun (build only) |
 | `packages/{shared,logger,telemetry,validation}/` | Shared libraries | TypeScript, tsc |
@@ -34,10 +34,10 @@ pnpm run test         # vitest (apps/auth)
 ### Web app
 
 ```bash
-pnpm --filter @boilerplate/readr run dev        # dev server on port 3001
-pnpm --filter @boilerplate/readr run build      # production build
-pnpm --filter @boilerplate/readr run lint       # biome check
-pnpm --filter @boilerplate/readr run typeCheck  # tsc --noEmit
+pnpm --filter @readr/web run dev        # dev server on port 3001
+pnpm --filter @readr/web run build      # production build
+pnpm --filter @readr/web run lint       # biome check
+pnpm --filter @readr/web run typeCheck  # tsc --noEmit
 ```
 
 ### Chrome extension
@@ -55,7 +55,7 @@ configured lint or type-check command.
 
 ## Web app environment
 
-Required in `apps/readr/.env.local`:
+Required in `apps/web/.env.local`:
 ```
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
