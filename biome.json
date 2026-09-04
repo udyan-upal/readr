@@ -59,7 +59,7 @@
 			}
 		},
 		{
-			"includes": ["packages/readr-extension/**"],
+			"includes": ["apps/extension/**"],
 			"linter": {
 				"enabled": false
 			},

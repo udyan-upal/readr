@@ -124,6 +124,19 @@ importers:
         specifier: 4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.4.0)(vite@8.2.2(@types/node@26.4.0)(esbuild@0.28.2)(jiti@2.6.1)(tsx@4.23.13)(yaml@2.9.0))
 
+  apps/extension:
+    dependencies:
+      '@mozilla/readability':
+        specifier: ^0.5.0
+        version: 0.5.0
+    devDependencies:
+      '@types/chrome':
+        specifier: ^0.0.268
+        version: 0.0.268
+      '@types/mozilla__readability':
+        specifier: ^0.4.2
+        version: 0.4.2
+
   apps/readr:
     dependencies:
       '@clerk/nextjs':
@@ -197,19 +210,6 @@ importers:
       rimraf:
         specifier: 'catalog:'
         version: 6.1.3
-
-  packages/readr-extension:
-    dependencies:
-      '@mozilla/readability':
-        specifier: ^0.5.0
-        version: 0.5.0
-    devDependencies:
-      '@types/chrome':
-        specifier: ^0.0.268
-        version: 0.0.268
-      '@types/mozilla__readability':
-        specifier: ^0.4.2
-        version: 0.4.2
 
   packages/shared:
     devDependencies:

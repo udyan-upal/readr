@@ -42,13 +42,13 @@ Keep the web app running because the extension sends read-aloud requests to its 
 endpoint. In a second terminal:
 
 ```bash
-cd readr-extension
+cd apps/extension
 bun install
 cp .env.example .env.local
 bun run dev
 ```
 
-Configure `readr-extension/.env.local`:
+Configure `apps/extension/.env.local`:
 
 ```dotenv
 OPENROUTER_API_KEY=your-openrouter-api-key
@@ -66,12 +66,12 @@ Load the extension in Chrome:
 1. Open `chrome://extensions`.
 2. Enable **Developer mode**.
 3. Click **Load unpacked**.
-4. Select `readr-extension/dist/`.
+4. Select `apps/extension/dist/`.
 5. Reload the extension from this page after a rebuild.
 
 `bun run dev` watches source files and rebuilds `dist/`. Use `bun run build` for a one-time
 build. Environment values are embedded at build time, so rebuild after editing
-`readr-extension/.env.local`.
+`apps/extension/.env.local`.
 
 ## Features
 
