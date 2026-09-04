@@ -24,6 +24,7 @@ const AI_PROVIDERS = [
 // State
 let currentArticle = null;
 const DEFAULT_SETTINGS = { theme: "sepia", font: "georgia", size: 18.5 };
+const DEFAULT_READ_RATE = 1.25;
 const LEGACY_SIZES = { small: 17, medium: 18.5, large: 20 };
 const MIN_SIZE = 15;
 const MAX_SIZE = 24;
@@ -61,7 +62,7 @@ let readAloudState = {
   prefetchPromise: null,
   prefetchChunkIndex: -1,
   selectedVoice: "emma",
-  rate: 1,
+  rate: DEFAULT_READ_RATE,
   isLoading: false,
   isPlaying: false,
   isPaused: false,
@@ -197,7 +198,7 @@ async function init() {
   currentSettings.font = saved.font || DEFAULT_SETTINGS.font;
   currentSettings.size = normalizeSize(saved.size ?? DEFAULT_SETTINGS.size);
   readAloudState.selectedVoice = saved.readVoice || "emma";
-  readAloudState.rate = saved.readRate || 1;
+  readAloudState.rate = saved.readRate ?? DEFAULT_READ_RATE;
 
   applySettings();
   updateSettingsUI();
@@ -559,26 +560,38 @@ function prepareReadAloudWords() {
     wordPattern.lastIndex = 0;
 
     const frag = document.createDocumentFragment();
-    let lastIndex = 0;
+    let renderedUntil = 0;
     let match;
     while ((match = wordPattern.exec(text))) {
-      if (match.index > lastIndex) {
-        const between = text.slice(lastIndex, match.index);
+      const lexicalEnd = match.index + match[0].length;
+      let visualStart = match.index;
+      let visualEnd = lexicalEnd;
+
+      // Keep punctuation visually attached without changing the words used for TTS alignment.
+      while (visualStart > renderedUntil && !/\s/u.test(text[visualStart - 1])) visualStart--;
+      while (
+        visualEnd < text.length &&
+        !/\s/u.test(text[visualEnd]) &&
+        !/[\p{L}\p{N}]/u.test(text[visualEnd])
+      ) visualEnd++;
+
+      if (visualStart > renderedUntil) {
+        const between = text.slice(renderedUntil, visualStart);
         frag.appendChild(document.createTextNode(between));
       }
       const span = document.createElement("span");
       span.className = "read-word";
       span.dataset.readIndex = String(readAloudState.words.length);
-      span.textContent = match[0];
+      span.textContent = text.slice(visualStart, visualEnd);
       frag.appendChild(span);
       let charStart = readAloudState.fullText.indexOf(match[0], sourceSearchFrom);
       if (charStart === -1) charStart = sourceSearchFrom;
       readAloudState.words.push({ text: match[0], el: span, charStart });
       sourceSearchFrom = charStart + match[0].length;
-      lastIndex = match.index + match[0].length;
+      renderedUntil = visualEnd;
     }
-    if (lastIndex < text.length) {
-      const tail = text.slice(lastIndex);
+    if (renderedUntil < text.length) {
+      const tail = text.slice(renderedUntil);
       frag.appendChild(document.createTextNode(tail));
     }
     textNode.replaceWith(frag);
