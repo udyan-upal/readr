@@ -183,6 +183,9 @@ const readPlayPause = document.getElementById("read-play-pause");
 const readStop = document.getElementById("read-stop");
 const readStatus = document.getElementById("read-status");
 const readRateCycle = document.getElementById("read-rate-cycle");
+const readVoiceToggle = document.getElementById("read-voice-toggle");
+const readVoiceLabel = document.getElementById("read-voice-label");
+const readVoicePopover = document.getElementById("read-voice-popover");
 const readVoiceGroup = document.getElementById("read-voice-group");
 const readError = document.getElementById("read-error");
 
@@ -426,7 +429,8 @@ document.addEventListener("click", (e) => {
 
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  if (menuPopover.classList.contains("open")) setMenuOpen(false);
+  if (readVoicePopover.classList.contains("open")) setVoicePopoverOpen(false);
+  else if (menuPopover.classList.contains("open")) setMenuOpen(false);
   else if (assistPanel.classList.contains("open")) closeAssist();
 });
 
@@ -629,11 +633,15 @@ function formatTimeLeft(words, rate) {
 }
 
 function readStatusText() {
-  const voice = VOICE_LABEL[readAloudState.selectedVoice] || readAloudState.selectedVoice;
-  if (readAloudState.isLoading) return `Loading… · ${voice}`;
+  if (readAloudState.isLoading) return "Loading…";
   const remaining = Math.max(0, readAloudState.words.length - Math.max(0, readAloudState.currentWordIndex));
-  if (!readAloudState.words.length) return voice;
-  return `${formatTimeLeft(remaining, readAloudState.rate)} left · ${voice}`;
+  if (!readAloudState.words.length) return "Ready";
+  return `${formatTimeLeft(remaining, readAloudState.rate)} left`;
+}
+
+function setVoicePopoverOpen(open) {
+  readVoicePopover.classList.toggle("open", open);
+  readVoiceToggle.setAttribute("aria-expanded", String(open));
 }
 
 function updateReadAloudUI() {
@@ -645,6 +653,7 @@ function updateReadAloudUI() {
   readPlayPause.setAttribute("aria-label", readAloudState.isPlaying ? "Pause" : "Play");
   readPlayPause.disabled = readAloudState.isLoading;
   readStatus.textContent = readStatusText();
+  readVoiceLabel.textContent = VOICE_LABEL[readAloudState.selectedVoice] || readAloudState.selectedVoice;
   readRateCycle.textContent = `${readAloudState.rate}×`;
   readError.textContent = readAloudState.error || "";
   readError.classList.toggle("visible", !!readAloudState.error);
@@ -948,6 +957,7 @@ async function resumeReadAloud() {
 }
 
 function stopReadAloud({ keepPlayerOpen = false } = {}) {
+  setVoicePopoverOpen(false);
   readAloudState.sessionId += 1;
   clearReadAudio();
   clearPrefetchedReadClip();
@@ -977,15 +987,26 @@ btnRead.addEventListener("click", toggleReadAloud);
 readPlayPause.addEventListener("click", toggleReadAloud);
 readStop.addEventListener("click", () => stopReadAloud({ keepPlayerOpen: false }));
 
+readVoiceToggle.addEventListener("click", (e) => {
+  e.stopPropagation();
+  setVoicePopoverOpen(!readVoicePopover.classList.contains("open"));
+});
+
 readVoiceGroup.addEventListener("click", async (e) => {
   const btn = e.target.closest(".read-chip[data-voice]");
   if (!btn) return;
+  setVoicePopoverOpen(false);
+  if (btn.dataset.voice === readAloudState.selectedVoice) return;
   readAloudState.selectedVoice = btn.dataset.voice;
   await chrome.storage.local.set({ readVoice: readAloudState.selectedVoice });
   const restartAt = Math.max(0, readAloudState.currentWordIndex);
   const wasActive = readAloudState.isPlaying || readAloudState.isPaused;
   updateReadAloudUI();
   if (wasActive) startReadAloud(restartAt);
+});
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("#read-voice-picker")) setVoicePopoverOpen(false);
 });
 
 readRateCycle.addEventListener("click", async () => {

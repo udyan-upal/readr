@@ -161,15 +161,6 @@
       <input type="range" id="size-range" min="15" max="24" step="0.5" />
     </div>
 
-    <div class="menu-section">
-      <div class="menu-label">Voice</div>
-      <div class="btn-group" id="read-voice-group" role="group" aria-label="Voice">
-        <button class="option-btn read-chip" data-voice="ava">Ava</button>
-        <button class="option-btn read-chip" data-voice="chris">Chris</button>
-        <button class="option-btn read-chip" data-voice="emma">Emma</button>
-      </div>
-    </div>
-
     <div class="menu-section menu-items">
       <button class="menu-item" id="menu-annotations" type="button">Annotations</button>
       <button class="menu-item" id="btn-info" type="button">Article info</button>
@@ -210,7 +201,24 @@
     </button>
     <div id="read-meter">
       <div id="read-progress"><div id="read-progress-fill"></div></div>
-      <div id="read-status"></div>
+      <div id="read-status-row">
+        <span id="read-status"></span>
+        <span aria-hidden="true">·</span>
+        <div id="read-voice-picker">
+          <button id="read-voice-toggle" type="button" aria-haspopup="true" aria-expanded="false">
+            <span id="read-voice-label">Emma</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 10 5 5 5-5"></path></svg>
+          </button>
+          <div id="read-voice-popover" role="group" aria-label="Choose a voice">
+            <div class="read-voice-heading">Voice</div>
+            <div id="read-voice-group">
+              <button class="read-chip" data-voice="ava" type="button">Ava</button>
+              <button class="read-chip" data-voice="chris" type="button">Chris</button>
+              <button class="read-chip" data-voice="emma" type="button">Emma</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <span class="pill-divider"></span>
     <button id="read-rate-cycle" title="Playback speed">1×</button>
