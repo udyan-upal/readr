@@ -23,7 +23,16 @@ const AI_PROVIDERS = [
 
 // State
 let currentArticle = null;
-const DEFAULT_SETTINGS = { theme: "sepia", font: "georgia", size: "medium" };
+const DEFAULT_SETTINGS = { theme: "sepia", font: "georgia", size: 18.5 };
+const LEGACY_SIZES = { small: 17, medium: 18.5, large: 20 };
+const MIN_SIZE = 15;
+const MAX_SIZE = 24;
+
+function normalizeSize(value) {
+  const num = typeof value === "number" ? value : LEGACY_SIZES[value] ?? parseFloat(value);
+  if (!Number.isFinite(num)) return DEFAULT_SETTINGS.size;
+  return Math.min(MAX_SIZE, Math.max(MIN_SIZE, num));
+}
 let currentSettings = { ...DEFAULT_SETTINGS };
 let summaryGenerating = false;
 let chatGenerating = false;
@@ -129,6 +138,7 @@ const articleContainer = document.getElementById("article-container");
 const errorState = document.getElementById("error-state");
 const errorMessage = document.getElementById("error-message");
 const siteNameEl = document.getElementById("site-name");
+const infoSiteEl = document.getElementById("info-site");
 const originalUrlEl = document.getElementById("original-url");
 const infoTitleEl = document.getElementById("info-title");
 const infoReadTimeEl = document.getElementById("info-read-time");
@@ -142,18 +152,23 @@ const toc = document.getElementById("toc");
 const tocList = document.getElementById("toc-list");
 const btnInfo = document.getElementById("btn-info");
 const btnRead = document.getElementById("btn-read");
+const btnAssist = document.getElementById("btn-assist");
+const btnMenu = document.getElementById("btn-menu");
 const btnHighlights = document.getElementById("btn-highlights");
-const btnSettings = document.getElementById("btn-settings");
 const btnTldr = document.getElementById("btn-tldr");
 const btnChat = document.getElementById("btn-chat");
-const settingsPanel = document.getElementById("settings-panel");
+const assistPanel = document.getElementById("assist-panel");
+const btnCloseAssist = document.getElementById("close-assist");
 const highlightsPanel = document.getElementById("highlights-panel");
 const summaryPanel = document.getElementById("summary-panel");
 const chatPanel = document.getElementById("chat-panel");
 const summaryContent = document.getElementById("summary-content");
-const closeSettings = document.getElementById("close-settings");
-const closeHighlights = document.getElementById("close-highlights");
-const closeChat = document.getElementById("close-chat");
+const notesCount = document.getElementById("notes-count");
+const menuPopover = document.getElementById("menu-popover");
+const menuOriginal = document.getElementById("menu-original");
+const menuAnnotations = document.getElementById("menu-annotations");
+const sizeRange = document.getElementById("size-range");
+const sizeLabel = document.getElementById("size-label");
 const settingsDefault = document.getElementById("settings-default");
 const highlightsList = document.getElementById("highlights-list");
 const annotationToolbar = document.getElementById("annotation-toolbar");
@@ -166,8 +181,9 @@ const readPlayer = document.getElementById("read-player");
 const readProgressFill = document.getElementById("read-progress-fill");
 const readPlayPause = document.getElementById("read-play-pause");
 const readStop = document.getElementById("read-stop");
+const readStatus = document.getElementById("read-status");
+const readRateCycle = document.getElementById("read-rate-cycle");
 const readVoiceGroup = document.getElementById("read-voice-group");
-const readRateGroup = document.getElementById("read-rate-group");
 const readError = document.getElementById("read-error");
 
 // --- Init ---
@@ -176,7 +192,7 @@ async function init() {
   const saved = await chrome.storage.local.get(["theme", "font", "size", "readVoice", "readRate"]);
   currentSettings.theme = saved.theme || DEFAULT_SETTINGS.theme;
   currentSettings.font = saved.font || DEFAULT_SETTINGS.font;
-  currentSettings.size = saved.size || DEFAULT_SETTINGS.size;
+  currentSettings.size = normalizeSize(saved.size ?? DEFAULT_SETTINGS.size);
   readAloudState.selectedVoice = saved.readVoice || "emma";
   readAloudState.rate = saved.readRate || 1;
 
@@ -220,11 +236,14 @@ function renderArticle(article) {
   chatSend.disabled = false;
   const loadId = ++articleLoadId;
   document.title = article.title ? `${article.title} — readr` : "readr";
-  siteNameEl.textContent = article.siteName || "";
+  const siteName = article.siteName || (article.url ? new URL(article.url).hostname.replace(/^www\./, "") : "");
+  siteNameEl.textContent = siteName;
+  infoSiteEl.textContent = siteName || "Unknown";
   originalUrlEl.textContent = article.url || "";
   originalUrlEl.href = article.url || "#";
+  menuOriginal.href = article.url || "#";
   infoTitleEl.textContent = article.title || "Untitled page";
-  if (article.readTime) readTimeEl.textContent = `${article.readTime} min read`;
+  readTimeEl.textContent = article.readTime ? `${article.readTime} min read` : "";
   infoReadTimeEl.textContent = article.readTime ? `${article.readTime} min read` : "Unknown";
   if (article.byline) {
     bylineEl.textContent = article.byline;
@@ -240,7 +259,7 @@ function renderArticle(article) {
   resetChat();
   summaryText.textContent = "";
   summaryCursor.classList.add("done");
-  summaryRegen.style.display = "none";
+  summaryRegen.classList.remove("visible");
   articleAiRestore = restoreArticleAiState(article, loadId);
   articleBody.querySelectorAll("a").forEach((a) => {
     a.setAttribute("target", "_blank");
@@ -248,6 +267,7 @@ function renderArticle(article) {
   });
   prepareReadAloudWords();
   buildTableOfContents();
+  updateNotesCount();
   articleContainer.style.display = "";
   applyAnnotationsToDOM();
 }
@@ -260,20 +280,21 @@ function showError(msg) {
 // --- Settings ---
 
 function applySettings() {
+  document.documentElement.setAttribute("data-theme", currentSettings.theme);
   body.setAttribute("data-theme", currentSettings.theme);
-  articleBody.className = "";
-  articleBody.classList.add(`font-${currentSettings.font}`, `font-${currentSettings.size}`);
-  summaryContent.className = "";
-  summaryContent.classList.add(`font-${currentSettings.font}`, `font-${currentSettings.size}`);
+  body.style.setProperty("--article-size", `${currentSettings.size}px`);
+  articleBody.className = `font-${currentSettings.font}`;
+  summaryContent.className = `font-${currentSettings.font}`;
+  refreshReadHighlight();
 }
 
 function updateSettingsUI() {
-  document.querySelectorAll("#theme-group .option-btn").forEach((btn) =>
+  document.querySelectorAll("#theme-group .theme-swatch").forEach((btn) =>
     btn.classList.toggle("selected", btn.dataset.value === currentSettings.theme));
   document.querySelectorAll("#font-group .option-btn").forEach((btn) =>
     btn.classList.toggle("selected", btn.dataset.value === currentSettings.font));
-  document.querySelectorAll("#size-group .option-btn").forEach((btn) =>
-    btn.classList.toggle("selected", btn.dataset.value === currentSettings.size));
+  sizeRange.value = String(currentSettings.size);
+  sizeLabel.textContent = `${currentSettings.size}px`;
   settingsDefault.disabled = isDefaultSettings();
 }
 
@@ -290,18 +311,21 @@ async function saveSetting(key, value) {
   updateSettingsUI();
 }
 
-document.getElementById("theme-group").addEventListener("click", (e) => {
-  const btn = e.target.closest(".option-btn");
-  if (btn) saveSetting("theme", btn.dataset.value);
-});
 document.getElementById("font-group").addEventListener("click", (e) => {
   const btn = e.target.closest(".option-btn");
   if (btn) saveSetting("font", btn.dataset.value);
 });
-document.getElementById("size-group").addEventListener("click", (e) => {
-  const btn = e.target.closest(".option-btn");
-  if (btn) saveSetting("size", btn.dataset.value);
+document.getElementById("theme-group").addEventListener("click", (e) => {
+  const btn = e.target.closest(".theme-swatch");
+  if (btn) saveSetting("theme", btn.dataset.value);
 });
+
+sizeRange.addEventListener("input", () => {
+  currentSettings.size = normalizeSize(parseFloat(sizeRange.value));
+  applySettings();
+  updateSettingsUI();
+});
+sizeRange.addEventListener("change", () => saveSetting("size", normalizeSize(parseFloat(sizeRange.value))));
 
 settingsDefault.addEventListener("click", async () => {
   if (isDefaultSettings()) return;
@@ -311,71 +335,99 @@ settingsDefault.addEventListener("click", async () => {
   updateSettingsUI();
 });
 
-// --- Panel toggles ---
+// --- Assist panel (tl;dr / Ask / Notes) ---
 
-const ALL_PANELS = [
-  { panel: settingsPanel,  btn: btnSettings  },
-  { panel: highlightsPanel, btn: btnHighlights },
-  { panel: summaryPanel,   btn: btnTldr      },
-  { panel: chatPanel,      btn: btnChat      },
+const ASSIST_TABS = [
+  { name: "tldr",  panel: summaryPanel,    btn: btnTldr },
+  { name: "chat",  panel: chatPanel,       btn: btnChat },
+  { name: "notes", panel: highlightsPanel, btn: btnHighlights },
 ];
+let activeAssistTab = "tldr";
 
-function openPanel(panel, btnEl) {
-  ALL_PANELS.forEach(({ panel: p, btn: b }) => {
-    p.classList.remove("open");
-    b.classList.remove("active");
-  });
-  panel.classList.add("open");
-  btnEl.classList.add("active");
+function isAssistOpen(tab) {
+  return assistPanel.classList.contains("open") && (!tab || activeAssistTab === tab);
 }
 
-function closeAllPanels() {
-  ALL_PANELS.forEach(({ panel: p, btn: b }) => {
-    p.classList.remove("open");
-    b.classList.remove("active");
+async function openAssist(tab) {
+  activeAssistTab = tab;
+  assistPanel.classList.add("open");
+  body.classList.add("assist-open");
+  btnAssist.classList.add("active");
+  ASSIST_TABS.forEach(({ name, panel, btn }) => {
+    panel.classList.toggle("active", name === tab);
+    btn.classList.toggle("active", name === tab);
   });
-}
+  assistPanel.classList.toggle("tab-chat", tab === "chat");
+  refreshReadHighlight();
 
-btnSettings.addEventListener("click", () => {
-  settingsPanel.classList.contains("open") ? closeAllPanels() : openPanel(settingsPanel, btnSettings);
-});
-btnHighlights.addEventListener("click", () => {
-  if (highlightsPanel.classList.contains("open")) {
-    closeAllPanels();
-  } else {
-    renderAnnotationsPanel();
-    openPanel(highlightsPanel, btnHighlights);
-  }
-});
-btnTldr.addEventListener("click", async () => {
-  if (summaryPanel.classList.contains("open")) {
-    closeAllPanels();
-  } else {
-    openPanel(summaryPanel, btnTldr);
+  if (tab === "notes") renderAnnotationsPanel();
+  if (tab === "tldr") {
     const articleKey = getArticleKey();
     await articleAiRestore;
-    if (articleKey === getArticleKey() && summaryPanel.classList.contains("open") && !summaryText.textContent) {
+    if (articleKey === getArticleKey() && isAssistOpen("tldr") && !summaryText.textContent) {
       streamSummary();
     }
   }
+}
+
+function closeAssist() {
+  assistPanel.classList.remove("open");
+  body.classList.remove("assist-open");
+  btnAssist.classList.remove("active");
+  refreshReadHighlight();
+}
+
+function toggleAssistTab(tab) {
+  if (isAssistOpen(tab)) closeAssist();
+  else openAssist(tab);
+}
+
+btnAssist.addEventListener("click", () => {
+  if (assistPanel.classList.contains("open")) closeAssist();
+  else openAssist(activeAssistTab);
 });
-btnChat.addEventListener("click", () => {
-  chatPanel.classList.contains("open") ? closeAllPanels() : openPanel(chatPanel, btnChat);
+btnTldr.addEventListener("click", () => openAssist("tldr"));
+btnChat.addEventListener("click", () => openAssist("chat"));
+btnHighlights.addEventListener("click", () => openAssist("notes"));
+btnCloseAssist.addEventListener("click", closeAssist);
+
+// --- More menu ---
+
+function setMenuOpen(open) {
+  menuPopover.classList.toggle("open", open);
+  btnMenu.classList.toggle("active", open);
+  if (!open) setInfoOpen(false);
+}
+
+function setInfoOpen(open) {
+  infoPopover.classList.toggle("open", open);
+  btnInfo.classList.toggle("active", open);
+}
+
+btnMenu.addEventListener("click", (e) => {
+  e.stopPropagation();
+  setMenuOpen(!menuPopover.classList.contains("open"));
 });
-closeSettings.addEventListener("click", closeAllPanels);
-closeHighlights.addEventListener("click", closeAllPanels);
-closeChat.addEventListener("click", closeAllPanels);
 
 btnInfo.addEventListener("click", (e) => {
   e.stopPropagation();
-  infoPopover.classList.toggle("open");
-  btnInfo.classList.toggle("active", infoPopover.classList.contains("open"));
+  setInfoOpen(!infoPopover.classList.contains("open"));
+});
+
+menuAnnotations.addEventListener("click", () => {
+  setMenuOpen(false);
+  openAssist("notes");
 });
 
 document.addEventListener("click", (e) => {
-  if (e.target.closest("#info-popover") || e.target.closest("#btn-info")) return;
-  infoPopover.classList.remove("open");
-  btnInfo.classList.remove("active");
+  if (e.target.closest("#menu-popover") || e.target.closest("#btn-menu") || e.target.closest("#info-popover")) return;
+  setMenuOpen(false);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (menuPopover.classList.contains("open")) setMenuOpen(false);
+  else if (assistPanel.classList.contains("open")) closeAssist();
 });
 
 // --- Progress bar ---
@@ -566,19 +618,38 @@ function buildReadAloudChunks(startIndex) {
   return chunks;
 }
 
+const READ_RATES = [0.75, 1, 1.25, 1.5, 2];
+const VOICE_LABEL = { ava: "Ava", chris: "Chris", emma: "Emma" };
+const WORDS_PER_MINUTE = 185;
+
+function formatTimeLeft(words, rate) {
+  const seconds = Math.round((words / (WORDS_PER_MINUTE * rate)) * 60);
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function readStatusText() {
+  const voice = VOICE_LABEL[readAloudState.selectedVoice] || readAloudState.selectedVoice;
+  if (readAloudState.isLoading) return `Loading… · ${voice}`;
+  const remaining = Math.max(0, readAloudState.words.length - Math.max(0, readAloudState.currentWordIndex));
+  if (!readAloudState.words.length) return voice;
+  return `${formatTimeLeft(remaining, readAloudState.rate)} left · ${voice}`;
+}
+
 function updateReadAloudUI() {
-  btnRead.classList.toggle("active", readAloudState.isPlaying || readAloudState.isPaused);
-  readPlayer.classList.toggle("open", readAloudState.isLoading || readAloudState.isPlaying || readAloudState.isPaused || !!readAloudState.error);
-  readPlayPause.textContent = readAloudState.isLoading ? "Loading" : readAloudState.isPlaying ? "Pause" : "Play";
+  const active = readAloudState.isPlaying || readAloudState.isPaused;
+  btnRead.classList.toggle("active", active);
+  readPlayer.classList.toggle("open", readAloudState.isLoading || active || !!readAloudState.error);
+  readPlayer.classList.toggle("playing", readAloudState.isPlaying);
   readPlayPause.title = readAloudState.isPlaying ? "Pause" : "Play";
+  readPlayPause.setAttribute("aria-label", readAloudState.isPlaying ? "Pause" : "Play");
   readPlayPause.disabled = readAloudState.isLoading;
+  readStatus.textContent = readStatusText();
+  readRateCycle.textContent = `${readAloudState.rate}×`;
   readError.textContent = readAloudState.error || "";
   readError.classList.toggle("visible", !!readAloudState.error);
   readVoiceGroup.querySelectorAll(".read-chip[data-voice]").forEach((btn) => {
     btn.classList.toggle("selected", btn.dataset.voice === readAloudState.selectedVoice);
-  });
-  readRateGroup.querySelectorAll(".read-chip[data-rate]").forEach((btn) => {
-    btn.classList.toggle("selected", Number(btn.dataset.rate) === readAloudState.rate);
   });
   const total = Math.max(1, readAloudState.words.length - 1);
   const pct = readAloudState.currentWordIndex > 0 ? (readAloudState.currentWordIndex / total) * 100 : 0;
@@ -917,10 +988,9 @@ readVoiceGroup.addEventListener("click", async (e) => {
   if (wasActive) startReadAloud(restartAt);
 });
 
-readRateGroup.addEventListener("click", async (e) => {
-  const btn = e.target.closest(".read-chip[data-rate]");
-  if (!btn) return;
-  readAloudState.rate = Number(btn.dataset.rate) || 1;
+readRateCycle.addEventListener("click", async () => {
+  const index = READ_RATES.indexOf(readAloudState.rate);
+  readAloudState.rate = READ_RATES[(index + 1) % READ_RATES.length];
   await chrome.storage.local.set({ readRate: readAloudState.rate });
   const restartAt = Math.max(0, readAloudState.currentWordIndex);
   const wasActive = readAloudState.isPlaying || readAloudState.isPaused;
@@ -1014,11 +1084,8 @@ articleBody.addEventListener("click", async (e) => {
   const id = span.dataset.annotationId;
   if (!id) return;
 
-  // Open panel if closed
-  if (!highlightsPanel.classList.contains("open")) {
-    await renderAnnotationsPanel();
-    openPanel(highlightsPanel, btnHighlights);
-  }
+  // Open the notes tab if it is not showing
+  if (!isAssistOpen("notes")) await openAssist("notes");
 
   // Wait a tick for panel render if it was just opened
   requestAnimationFrame(() => {
@@ -1039,10 +1106,11 @@ document.addEventListener("mouseup", (e) => {
   if (
     e.target.closest("#annotation-toolbar") ||
     e.target.closest("#comment-popup") ||
-    e.target.closest("#settings-panel") ||
-    e.target.closest("#highlights-panel") ||
+    e.target.closest("#assist-panel") ||
+    e.target.closest("#menu-popover") ||
+    e.target.closest("#info-popover") ||
     e.target.closest("#read-player") ||
-    e.target.closest("#toolbar")
+    e.target.closest("#topbar")
   ) return;
 
   const sel = window.getSelection();
@@ -1062,6 +1130,7 @@ document.addEventListener("mousedown", (e) => {
   if (
     !e.target.closest("#annotation-toolbar") &&
     !e.target.closest("#comment-popup") &&
+    !e.target.closest("#assist-panel") &&
     !e.target.closest("#read-player")
   ) {
     hideAnnotationUI();
@@ -1070,7 +1139,7 @@ document.addEventListener("mousedown", (e) => {
 
 function positionToolbar(range) {
   const rect = range.getBoundingClientRect();
-  const approxW = 210;
+  const approxW = 380;
   let left = rect.left + rect.width / 2 - approxW / 2;
   let top = rect.top - 48 + window.scrollY;
   if (rect.top < 80) top = rect.bottom + window.scrollY + 8;
@@ -1089,6 +1158,18 @@ annotationToolbar.addEventListener("click", async (e) => {
   const btn = e.target.closest(".annotation-tool-btn");
   if (!btn || !pendingRange) return;
   const type = btn.dataset.type;
+
+  if (type === "ask") {
+    const quote = pendingRange.toString().trim();
+    hideAnnotationUI();
+    window.getSelection()?.removeAllRanges();
+    await openAssist("chat");
+    chatInput.value = quote ? `About this passage: “${quote}”\n\n` : "";
+    chatInput.focus();
+    chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length);
+    autoGrowChatInput();
+    return;
+  }
 
   if (type === "comment") {
     // Show comment popup just below toolbar
@@ -1151,7 +1232,8 @@ async function createAnnotation(type, comment, range) {
 
   wrapRange(range, annotation);
 
-  if (highlightsPanel.classList.contains("open")) renderAnnotationsPanel();
+  updateNotesCount();
+  if (isAssistOpen("notes")) renderAnnotationsPanel();
 }
 
 // --- Comment tooltip on hover ---
@@ -1177,19 +1259,26 @@ articleBody.addEventListener("mouseout", (e) => {
 
 // --- Annotations panel ---
 
-const TYPE_ICON  = { highlight: "●", strikethrough: "S̶", comment: "◎" };
-const TYPE_LABEL = { highlight: "Highlight", strikethrough: "Strikethrough", comment: "Comment" };
+const TYPE_LABEL = { highlight: "Highlight", strikethrough: "Strike", comment: "Note" };
+
+async function articleAnnotations() {
+  const stored = await chrome.storage.local.get("annotations");
+  const all = stored.annotations || [];
+  return currentArticle?.url ? all.filter((a) => a.url === currentArticle.url) : all;
+}
+
+async function updateNotesCount() {
+  const count = (await articleAnnotations()).length;
+  notesCount.textContent = count ? ` ${count}` : "";
+}
 
 function formatTime(ts) {
   return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
 async function renderAnnotationsPanel() {
-  const stored = await chrome.storage.local.get("annotations");
-  const all = stored.annotations || [];
-  const relevant = currentArticle?.url
-    ? all.filter((a) => a.url === currentArticle.url)
-    : all;
+  const relevant = await articleAnnotations();
+  notesCount.textContent = relevant.length ? ` ${relevant.length}` : "";
 
   if (!relevant.length) {
     highlightsList.innerHTML =
@@ -1202,15 +1291,13 @@ async function renderAnnotationsPanel() {
     const item = document.createElement("div");
     item.className = "highlight-item";
     item.dataset.annotationId = a.id;
+    item.dataset.type = a.type;
 
     item.innerHTML = `
-      <div class="annotation-badge annotation-badge-${a.type}">
-        ${TYPE_ICON[a.type] || "●"} ${TYPE_LABEL[a.type] || a.type}
-      </div>
-      <div class="highlight-text annotation-text-${a.type}">${escapeHtml(a.text)}</div>
+      <div class="highlight-text">“${escapeHtml(a.text)}”</div>
       ${a.comment ? `<div class="annotation-comment-note">${escapeHtml(a.comment)}</div>` : ""}
       <div class="highlight-meta">
-        <span class="highlight-time">${formatTime(a.timestamp)}</span>
+        <span class="highlight-time">${TYPE_LABEL[a.type] || a.type} · ${formatTime(a.timestamp)}</span>
         <button class="highlight-delete" data-id="${a.id}">Delete</button>
       </div>
     `;
@@ -1258,8 +1345,6 @@ const summaryText = document.getElementById("summary-text");
 const summaryCursor = document.getElementById("summary-cursor");
 const summaryRegen = document.getElementById("summary-regen");
 
-document.getElementById("close-summary").addEventListener("click", closeAllPanels);
-
 document.getElementById("summary-regen").addEventListener("click", () => {
   if (summaryGenerating) return;
   streamSummary();
@@ -1302,7 +1387,7 @@ async function restoreArticleAiState(article, loadId) {
     const savedSummary = typeof saved?.summary === "string" ? saved.summary : "";
     summaryText.textContent = savedSummary;
     summaryCursor.classList.add("done");
-    summaryRegen.style.display = savedSummary ? "" : "none";
+    summaryRegen.classList.toggle("visible", !!savedSummary);
     chatHistory = sanitizeChatHistory(saved?.chatHistory);
     renderChatHistory();
   } catch (error) {
@@ -1428,6 +1513,13 @@ chatNew.addEventListener("click", async () => {
   }
 });
 
+function autoGrowChatInput() {
+  chatInput.style.height = "auto";
+  chatInput.style.height = `${Math.min(120, chatInput.scrollHeight)}px`;
+}
+
+chatInput.addEventListener("input", autoGrowChatInput);
+
 chatInput.addEventListener("keydown", (e) => {
   if (e.key !== "Enter" || e.shiftKey || e.isComposing) return;
   e.preventDefault();
@@ -1445,6 +1537,7 @@ chatForm.addEventListener("submit", async (e) => {
 
   appendChatMessage("user", question);
   chatInput.value = "";
+  autoGrowChatInput();
   chatGenerating = true;
   chatSend.disabled = true;
   chatNew.disabled = false;
@@ -1530,7 +1623,7 @@ async function streamSummary() {
 
   summaryText.textContent = "";
   summaryCursor.classList.remove("done");
-  summaryRegen.style.display = "none";
+  summaryRegen.classList.remove("visible");
   btnTldr.classList.add("active");
 
   const prompt =
@@ -1568,7 +1661,7 @@ async function streamSummary() {
     if (summaryRequestController === controller) {
       summaryRequestController = null;
       summaryCursor.classList.add("done");
-      summaryRegen.style.display = summaryText.textContent ? "" : "none";
+      summaryRegen.classList.toggle("visible", !!summaryText.textContent);
       summaryGenerating = false;
     }
   }
