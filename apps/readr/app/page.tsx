@@ -1,6 +1,7 @@
 'use client'
 
 import { SignInButton, UserButton, useUser } from '@clerk/nextjs'
+import Image from 'next/image'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { FaNotesMedical } from 'react-icons/fa'
 import NotesPanel from '@/components/NotesPanel'
@@ -675,10 +676,12 @@ export default function Home() {
 						width: '100%',
 					}}
 				>
-					<img
+					<Image
 						src="/readr-logo-nobg.png"
 						alt="Readr"
-						style={{ width: 64, height: 64, objectFit: 'contain' }}
+						width={64}
+						height={64}
+						style={{ objectFit: 'contain' }}
 					/>
 					<div style={{ textAlign: 'center' }}>
 						<h1
@@ -766,10 +769,12 @@ export default function Home() {
 								flexShrink: 0,
 							}}
 						>
-							<img
+							<Image
 								src="/readr-logo-nobg.png"
 								alt="Readr"
-								style={{ width: 18, height: 18, objectFit: 'contain' }}
+								width={18}
+								height={18}
+								style={{ objectFit: 'contain' }}
 							/>
 						</div>
 						<span
@@ -1035,10 +1040,12 @@ export default function Home() {
 							flexShrink: 0,
 						}}
 					>
-						<img
+						<Image
 							src="/readr-logo-nobg.png"
 							alt="Readr"
-							style={{ width: 17, height: 17, objectFit: 'contain' }}
+							width={17}
+							height={17}
+							style={{ objectFit: 'contain' }}
 						/>
 					</div>
 					{outline.length > 0 && (

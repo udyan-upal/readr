@@ -37,3 +37,7 @@ overrides:
 
 minimumReleaseAge: 2880 # minutes a release must age before installable (supply-chain protection)
 dedupeDirectDeps: true
+
+# verifyDepsBeforeRun misreports same-version deps shared with the workspace root
+# (e.g. @types/node, rimraf in apps/readr) as missing and reinstalls on every run.
+verifyDepsBeforeRun: false
