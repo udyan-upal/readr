@@ -1,46 +1,64 @@
 # AGENTS.md
 
-This repository contains the Readr web app and Chrome extension. The extension lives in
-`readr-extension/` and has its own `AGENTS.md` with more specific guidance.
+This repository is a pnpm workspace containing the Readr web app, its Chrome extension,
+and shared packages. The extension lives in `packages/readr-extension/` and has its own
+`AGENTS.md` with more specific guidance.
 
 ## Repository layout
 
 | Path | Project | Tooling |
 |------|---------|---------|
-| `/` | PDF reader web app | Next.js, npm |
-| `readr-extension/` | Article reader Chrome extension | Chrome MV3, Bun |
+| `apps/readr/` | PDF reader web app | Next.js, pnpm |
+| `apps/auth/` | Auth API service | Hono, tsx, Drizzle |
+| `packages/readr-extension/` | Article reader Chrome extension | Chrome MV3, Bun (build only) |
+| `packages/{shared,logger,telemetry,validation}/` | Shared libraries | TypeScript, tsc |
+| `tools/{tsconfig,biome}/` | Shared configs | — |
 
-Keep each project's dependencies and commands scoped to its directory. Do not run npm
-commands for the extension or Bun commands for the web app.
+Dependencies install once at the repo root (`pnpm install`); workspace packages resolve
+each other via `workspace:*`. The extension's dependencies come from the root install,
+but its build still runs under Bun.
 
 ## Commands
+
+### From the repo root
+
+```bash
+pnpm install          # install all workspaces
+pnpm run dev          # auth (:3000) + readr (:3001) via concurrently
+pnpm run build        # build:packages then build:apps
+pnpm run lint         # biome check across workspaces
+pnpm run typeCheck    # tsc --noEmit across workspaces
+pnpm run test         # vitest (apps/auth)
+```
 
 ### Web app
 
 ```bash
-npm run dev      # dev server on port 3001
-npm run build    # production build
-npm run lint     # ESLint
-npx tsc --noEmit # type-check without emitting
+pnpm --filter @boilerplate/readr run dev        # dev server on port 3001
+pnpm --filter @boilerplate/readr run build      # production build
+pnpm --filter @boilerplate/readr run lint       # biome check
+pnpm --filter @boilerplate/readr run typeCheck  # tsc --noEmit
 ```
 
 ### Chrome extension
 
-Run these from `readr-extension/`:
+Run these from `packages/readr-extension/`:
 
 ```bash
 bun run dev      # rebuild on source changes
 bun run build    # build the unpacked extension into dist/
 ```
 
-Load `readr-extension/dist/` as an unpacked extension in Chrome after building. Neither
-project has a test suite; the extension also has no configured lint or type-check command.
+Load `packages/readr-extension/dist/` as an unpacked extension in Chrome after building.
+The web app and auth have no readr test suite (auth does); the extension also has no
+configured lint or type-check command.
 
 ## Web app environment
 
-Required in `.env.local`:
+Required in `apps/readr/.env.local`:
 ```
 NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=...
 CLERK_SECRET_KEY=...
@@ -50,8 +68,8 @@ CLERK_SECRET_KEY=...
 
 ## Extension environment
 
-`readr-extension/.env.local` may define `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, and
-`NVIDIA_API_KEY`; see `readr-extension/.env.example`. OpenRouter is primary and NVIDIA is
+`packages/readr-extension/.env.local` may define `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, and
+`NVIDIA_API_KEY`; see `packages/readr-extension/.env.example`. OpenRouter is primary and NVIDIA is
 the fallback. The build inlines provider configuration into the extension bundle, so
 rebuild after changing it. The build succeeds without a provider, but summary and chat
 requests fail at runtime.
@@ -111,15 +129,15 @@ requests fail at runtime.
 The Chrome MV3 extension extracts readable article content from the active tab and opens it
 in a dedicated reader tab.
 
-1. `readr-extension/src/popup/popup.js` injects the content extractor into the active tab.
-2. `readr-extension/src/content/extractor.js` uses `@mozilla/readability` and sends an
+1. `packages/readr-extension/src/popup/popup.js` injects the content extractor into the active tab.
+2. `packages/readr-extension/src/content/extractor.js` uses `@mozilla/readability` and sends an
    `ARTICLE_EXTRACTED` message.
-3. `readr-extension/src/background/service_worker.js` stores the article or error in
+3. `packages/readr-extension/src/background/service_worker.js` stores the article or error in
    `chrome.storage.session` and opens the reader.
-4. `readr-extension/src/reader/reader.js` renders the article, persists settings and
+4. `packages/readr-extension/src/reader/reader.js` renders the article, persists settings and
    annotations in `chrome.storage.local`, and stores per-article summaries and chat history
    in IndexedDB.
 
-`readr-extension/build.ts` is the source of truth for bundled entrypoints and copied assets.
-Do not edit generated files in `readr-extension/dist/`; edit `src/`, `manifest.json`, or
+`packages/readr-extension/build.ts` is the source of truth for bundled entrypoints and copied assets.
+Do not edit generated files in `packages/readr-extension/dist/`; edit `src/`, `manifest.json`, or
 `icons/` and rebuild instead.
