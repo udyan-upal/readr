@@ -12,7 +12,7 @@
 - Popup entrypoint: `src/popup/popup.js`; it injects `content/extractor.js` into the active tab with `chrome.scripting.executeScript`.
 - Content entrypoint: `src/content/extractor.js`; it uses `@mozilla/readability` and sends `ARTICLE_EXTRACTED` to the background worker.
 - Background entrypoint: `src/background/service_worker.js`; it writes `pendingArticle`/`pendingError` to `chrome.storage.session` and opens `reader/index.html` in a new tab.
-- Reader entrypoint: `src/reader/reader.js`; it reads article data from `chrome.storage.session` and settings/annotations from `chrome.storage.local`.
+- Reader entrypoint: `src/reader/reader.js`; it reads article data from `chrome.storage.session`, settings/annotations from `chrome.storage.local`, and per-article summaries/chat history from IndexedDB.
 
 ## Build Gotchas
 - `build.ts` is the source of truth for bundled entrypoints and copied files; update it when adding new JS/CSS/HTML assets that must reach `dist/`.

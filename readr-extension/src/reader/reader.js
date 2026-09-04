@@ -29,6 +29,13 @@ let summaryGenerating = false;
 let chatGenerating = false;
 let chatHistory = [];
 const CHAT_HISTORY_LIMIT = 20;
+const AI_DB_NAME = "readr-extension";
+const AI_DB_STORE = "articleAi";
+let aiDbPromise = null;
+let articleAiRestore = Promise.resolve();
+let articleLoadId = 0;
+let chatRequestController = null;
+let summaryRequestController = null;
 let readAloudState = {
   words: [],
   fullText: "",
@@ -52,6 +59,67 @@ let readAloudState = {
   sessionId: 0,
   error: null,
 };
+
+function getArticleKey(article = currentArticle) {
+  if (!article?.url) return null;
+  try {
+    const url = new URL(article.url);
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return article.url;
+  }
+}
+
+function openAiDb() {
+  if (aiDbPromise) return aiDbPromise;
+  aiDbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(AI_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(AI_DB_STORE)) {
+        request.result.createObjectStore(AI_DB_STORE, { keyPath: "url" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+    request.onblocked = () => console.warn("IndexedDB upgrade blocked by another reader tab");
+  });
+  return aiDbPromise;
+}
+
+async function getArticleAi(url) {
+  const db = await openAiDb();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(AI_DB_STORE, "readonly");
+    const request = transaction.objectStore(AI_DB_STORE).get(url);
+    request.onsuccess = () => resolve(request.result ?? null);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function updateArticleAi(url, patch) {
+  const db = await openAiDb();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(AI_DB_STORE, "readwrite");
+    const store = transaction.objectStore(AI_DB_STORE);
+    const request = store.get(url);
+    request.onsuccess = () => store.put({ ...(request.result ?? {}), url, ...patch });
+    request.onerror = () => transaction.abort();
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error ?? request.error);
+    transaction.onabort = () => reject(transaction.error ?? request.error);
+  });
+}
+
+function sanitizeChatHistory(history) {
+  if (!Array.isArray(history)) return [];
+  return history
+    .filter((message) =>
+      (message?.role === "user" || message?.role === "assistant") &&
+      typeof message.content === "string")
+    .map((message) => ({ role: message.role, content: message.content.slice(0, 10000) }))
+    .slice(-CHAT_HISTORY_LIMIT);
+}
 
 // DOM refs
 const progressBar = document.getElementById("progress-bar");
@@ -143,6 +211,14 @@ async function init() {
 
 function renderArticle(article) {
   stopReadAloud({ keepPlayerOpen: false });
+  chatRequestController?.abort();
+  summaryRequestController?.abort();
+  chatRequestController = null;
+  summaryRequestController = null;
+  chatGenerating = false;
+  summaryGenerating = false;
+  chatSend.disabled = false;
+  const loadId = ++articleLoadId;
   document.title = article.title ? `${article.title} — readr` : "readr";
   siteNameEl.textContent = article.siteName || "";
   originalUrlEl.textContent = article.url || "";
@@ -162,6 +238,10 @@ function renderArticle(article) {
   titleEl.textContent = article.title || "";
   articleBody.innerHTML = article.content || "";
   resetChat();
+  summaryText.textContent = "";
+  summaryCursor.classList.add("done");
+  summaryRegen.style.display = "none";
+  articleAiRestore = restoreArticleAiState(article, loadId);
   articleBody.querySelectorAll("a").forEach((a) => {
     a.setAttribute("target", "_blank");
     a.setAttribute("rel", "noopener noreferrer");
@@ -267,12 +347,16 @@ btnHighlights.addEventListener("click", () => {
     openPanel(highlightsPanel, btnHighlights);
   }
 });
-btnTldr.addEventListener("click", () => {
+btnTldr.addEventListener("click", async () => {
   if (summaryPanel.classList.contains("open")) {
     closeAllPanels();
   } else {
     openPanel(summaryPanel, btnTldr);
-    if (!summaryText.textContent) streamSummary();
+    const articleKey = getArticleKey();
+    await articleAiRestore;
+    if (articleKey === getArticleKey() && summaryPanel.classList.contains("open") && !summaryText.textContent) {
+      streamSummary();
+    }
   }
 });
 btnChat.addEventListener("click", () => {
@@ -1189,11 +1273,41 @@ const chatMessages = document.getElementById("chat-messages");
 const chatForm = document.getElementById("chat-form");
 const chatInput = document.getElementById("chat-input");
 const chatSend = document.getElementById("chat-send");
+const chatNew = document.getElementById("chat-new");
+
+function renderChatHistory() {
+  chatMessages.innerHTML = "";
+  if (chatHistory.length === 0) {
+    chatMessages.innerHTML = '<div class="chat-empty">Ask about the article or anything else.</div>';
+  } else {
+    chatHistory.forEach((message) => appendChatMessage(message.role, message.content));
+  }
+  chatNew.disabled = chatHistory.length === 0 && !chatGenerating;
+}
 
 function resetChat() {
   if (!chatMessages) return;
   chatHistory = [];
-  chatMessages.innerHTML = '<div class="chat-empty">Ask about the article or anything else.</div>';
+  renderChatHistory();
+}
+
+async function restoreArticleAiState(article, loadId) {
+  const articleKey = getArticleKey(article);
+  if (!articleKey) return;
+
+  try {
+    const saved = await getArticleAi(articleKey);
+    if (loadId !== articleLoadId || articleKey !== getArticleKey()) return;
+
+    const savedSummary = typeof saved?.summary === "string" ? saved.summary : "";
+    summaryText.textContent = savedSummary;
+    summaryCursor.classList.add("done");
+    summaryRegen.style.display = savedSummary ? "" : "none";
+    chatHistory = sanitizeChatHistory(saved?.chatHistory);
+    renderChatHistory();
+  } catch (error) {
+    console.warn("Could not restore saved AI content", error);
+  }
 }
 
 function appendChatMessage(role, text) {
@@ -1210,7 +1324,7 @@ function submitChatQuestion() {
   chatForm.requestSubmit();
 }
 
-async function requestAi(payload, handleResponse) {
+async function requestAi(payload, handleResponse, signal) {
   if (AI_PROVIDERS.length === 0) {
     throw new Error("No AI provider configured");
   }
@@ -1220,6 +1334,7 @@ async function requestAi(payload, handleResponse) {
     try {
       const response = await fetch(provider.endpoint, {
         method: "POST",
+        signal,
         headers: {
           "Authorization": `Bearer ${provider.apiKey}`,
           ...(payload.stream ? { "Accept": "text/event-stream" } : {}),
@@ -1230,6 +1345,7 @@ async function requestAi(payload, handleResponse) {
       if (!response.ok) throw new Error(`${provider.name} API error ${response.status}`);
       return await handleResponse(response);
     } catch (error) {
+      if (signal?.aborted) throw error;
       lastError = error;
       const fallbackMessage = index < AI_PROVIDERS.length - 1 ? "; trying fallback" : "";
       console.warn(`${provider.name} request failed${fallbackMessage}`, error);
@@ -1238,6 +1354,23 @@ async function requestAi(payload, handleResponse) {
 
   throw lastError;
 }
+
+chatNew.addEventListener("click", async () => {
+  const articleKey = getArticleKey();
+  chatRequestController?.abort();
+  chatRequestController = null;
+  chatGenerating = false;
+  chatSend.disabled = false;
+  resetChat();
+  chatInput.focus();
+
+  if (!articleKey) return;
+  try {
+    await updateArticleAi(articleKey, { chatHistory: [], chatUpdatedAt: Date.now() });
+  } catch (error) {
+    console.warn("Could not delete saved chat", error);
+  }
+});
 
 chatInput.addEventListener("keydown", (e) => {
   if (e.key !== "Enter" || e.shiftKey || e.isComposing) return;
@@ -1248,6 +1381,9 @@ chatInput.addEventListener("keydown", (e) => {
 chatForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   if (chatGenerating || !currentArticle) return;
+  const articleKey = getArticleKey();
+  await articleAiRestore;
+  if (articleKey !== getArticleKey() || chatGenerating) return;
   const question = chatInput.value.trim();
   if (!question) return;
 
@@ -1255,7 +1391,11 @@ chatForm.addEventListener("submit", async (e) => {
   chatInput.value = "";
   chatGenerating = true;
   chatSend.disabled = true;
+  chatNew.disabled = false;
   const answerEl = appendChatMessage("assistant", "Thinking...");
+  const controller = new AbortController();
+  chatRequestController?.abort();
+  chatRequestController = controller;
 
   const articleContext =
     `You are a helpful conversational assistant in a reading app. Remember and use the conversation history for follow-up questions. ` +
@@ -1279,7 +1419,8 @@ chatForm.addEventListener("submit", async (e) => {
       temperature: 0.35,
       top_p: 0.9,
       stream: false,
-    }, (response) => response.json());
+    }, (response) => response.json(), controller.signal);
+    if (controller.signal.aborted || articleKey !== getArticleKey()) return;
     const answer = data.choices?.[0]?.message?.content?.trim() || "No answer returned.";
     answerEl.textContent = answer;
     chatHistory.push(
@@ -1289,19 +1430,40 @@ chatForm.addEventListener("submit", async (e) => {
     if (chatHistory.length > CHAT_HISTORY_LIMIT) {
       chatHistory.splice(0, chatHistory.length - CHAT_HISTORY_LIMIT);
     }
+    if (articleKey) {
+      try {
+        await updateArticleAi(articleKey, {
+          chatHistory: structuredClone(chatHistory),
+          chatUpdatedAt: Date.now(),
+        });
+      } catch (error) {
+        console.warn("Could not save chat", error);
+      }
+    }
   } catch (err) {
-    answerEl.textContent = "Could not answer right now. Check the AI configuration and try again.";
+    if (!controller.signal.aborted) {
+      answerEl.textContent = "Could not answer right now. Check the AI configuration and try again.";
+    }
   } finally {
-    chatGenerating = false;
-    chatSend.disabled = false;
-    chatInput.focus();
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    if (chatRequestController === controller) {
+      chatRequestController = null;
+      chatGenerating = false;
+      chatSend.disabled = false;
+      chatNew.disabled = chatHistory.length === 0;
+      chatInput.focus();
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
   }
 });
 
 async function streamSummary() {
   if (!currentArticle || summaryGenerating) return;
   summaryGenerating = true;
+  const articleKey = getArticleKey();
+  const previousSummary = summaryText.textContent;
+  const controller = new AbortController();
+  summaryRequestController?.abort();
+  summaryRequestController = controller;
 
   summaryText.textContent = "";
   summaryCursor.classList.remove("done");
@@ -1350,13 +1512,28 @@ async function streamSummary() {
           } catch {}
         }
       }
-    });
+    }, controller.signal);
+    if (controller.signal.aborted || articleKey !== getArticleKey()) return;
+    const summary = summaryText.textContent.trim();
+    if (!summary) throw new Error("AI provider returned an empty summary");
+    if (articleKey) {
+      try {
+        await updateArticleAi(articleKey, { summary, summaryUpdatedAt: Date.now() });
+      } catch (error) {
+        console.warn("Could not save summary", error);
+      }
+    }
   } catch (err) {
-    summaryText.textContent = "Could not generate summary. Check the AI configuration or try again.";
+    if (!controller.signal.aborted) {
+      summaryText.textContent = previousSummary || "Could not generate summary. Check the AI configuration or try again.";
+    }
   } finally {
-    summaryCursor.classList.add("done");
-    summaryRegen.style.display = "";
-    summaryGenerating = false;
+    if (summaryRequestController === controller) {
+      summaryRequestController = null;
+      summaryCursor.classList.add("done");
+      summaryRegen.style.display = summaryText.textContent ? "" : "none";
+      summaryGenerating = false;
+    }
   }
 }
 

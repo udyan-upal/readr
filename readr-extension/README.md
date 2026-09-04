@@ -48,4 +48,6 @@ bun run dev
 - `dist/` is generated build output and should not be edited by hand.
 - Rebuild after changing `.env.local` because provider settings and API keys are inlined at
   build time. Keys bundled in a browser extension can be inspected by its users.
+- TL;DR results and the latest 10 chat turns are stored per article URL in IndexedDB. The
+  **New chat** action deletes the current article's conversation without removing its summary.
 - There are no configured test, lint, format, or typecheck scripts.

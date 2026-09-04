@@ -116,8 +116,9 @@ in a dedicated reader tab.
    `ARTICLE_EXTRACTED` message.
 3. `readr-extension/src/background/service_worker.js` stores the article or error in
    `chrome.storage.session` and opens the reader.
-4. `readr-extension/src/reader/reader.js` renders the article and persists settings and
-   annotations in `chrome.storage.local`.
+4. `readr-extension/src/reader/reader.js` renders the article, persists settings and
+   annotations in `chrome.storage.local`, and stores per-article summaries and chat history
+   in IndexedDB.
 
 `readr-extension/build.ts` is the source of truth for bundled entrypoints and copied assets.
 Do not edit generated files in `readr-extension/dist/`; edit `src/`, `manifest.json`, or
