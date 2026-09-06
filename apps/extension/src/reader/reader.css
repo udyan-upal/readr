@@ -200,12 +200,32 @@ button { font-family: inherit; cursor: pointer; }
   flex: 0 0 176px;
   position: sticky;
   top: 62px;
-  padding: 44px 20px 44px 28px;
+  max-height: calc(100vh - 62px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 44px 12px 64px 28px;
   display: none;
   flex-direction: column;
   gap: 3px;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 #toc.visible { display: flex; }
+
+#toc::-webkit-scrollbar {
+  width: 5px;
+}
+#toc::-webkit-scrollbar-track {
+  background: transparent;
+}
+#toc::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+#toc::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
 
 #toc-label {
   font-size: 10.5px;

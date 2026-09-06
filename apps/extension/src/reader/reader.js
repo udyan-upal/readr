@@ -536,9 +536,23 @@ function updateActiveTocItem() {
     if (heading.getBoundingClientRect().top <= 140) active = heading;
     else break;
   }
+  let activeItem = null;
   tocList.querySelectorAll(".toc-item").forEach((item) => {
-    item.classList.toggle("active", item.dataset.target === active.id);
+    const isActive = item.dataset.target === active.id;
+    item.classList.toggle("active", isActive);
+    if (isActive) activeItem = item;
   });
+  if (activeItem && (!toc.matches || !toc.matches(":hover"))) {
+    const tocRect = toc.getBoundingClientRect?.();
+    const itemRect = activeItem.getBoundingClientRect?.();
+    if (tocRect && itemRect) {
+      if (itemRect.top < tocRect.top + 30) {
+        toc.scrollTop -= (tocRect.top + 30 - itemRect.top);
+      } else if (itemRect.bottom > tocRect.bottom - 30) {
+        toc.scrollTop += (itemRect.bottom - (tocRect.bottom - 30));
+      }
+    }
+  }
 }
 
 // --- Read aloud ---
