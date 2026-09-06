@@ -181,6 +181,7 @@ const commentPopup = document.getElementById("comment-popup");
 const commentInput = document.getElementById("comment-input");
 const annotationTooltip = document.getElementById("annotation-tooltip");
 const readHighlightPill = document.getElementById("read-highlight-pill");
+const scrollTopBtn = document.getElementById("scroll-top-btn");
 const infoPopover = document.getElementById("info-popover");
 const readPlayer = document.getElementById("read-player");
 const readProgressFill = document.getElementById("read-progress-fill");
@@ -476,11 +477,23 @@ document.addEventListener("keydown", (e) => {
 
 // --- Progress bar ---
 
+function updateScrollTopButton() {
+  if (!scrollTopBtn) return;
+  scrollTopBtn.classList.toggle("visible", window.scrollY > 350);
+}
+
+if (scrollTopBtn) {
+  scrollTopBtn.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+}
+
 window.addEventListener("scroll", () => {
   const docHeight = document.documentElement.scrollHeight - window.innerHeight;
   const pct = docHeight > 0 ? (window.scrollY / docHeight) * 100 : 0;
   progressBar.style.width = `${readAloudState.isCompleted ? 100 : Math.min(100, pct)}%`;
   updateActiveTocItem();
+  updateScrollTopButton();
 });
 
 // --- Table of contents ---
