@@ -156,9 +156,10 @@ const toc = document.getElementById("toc");
 const tocList = document.getElementById("toc-list");
 const btnInfo = document.getElementById("btn-info");
 const btnRead = document.getElementById("btn-read");
+const btnNotes = document.getElementById("btn-notes") || document.getElementById("btn-highlights");
 const btnAssist = document.getElementById("btn-assist");
 const btnMenu = document.getElementById("btn-menu");
-const btnHighlights = document.getElementById("btn-highlights");
+const btnHighlights = btnNotes;
 const btnTldr = document.getElementById("btn-tldr");
 const btnChat = document.getElementById("btn-chat");
 const assistPanel = document.getElementById("assist-panel");
@@ -350,9 +351,10 @@ settingsDefault.addEventListener("click", async () => {
 const ASSIST_TABS = [
   { name: "tldr",  panel: summaryPanel,    btn: btnTldr },
   { name: "chat",  panel: chatPanel,       btn: btnChat },
-  { name: "notes", panel: highlightsPanel, btn: btnHighlights },
+  { name: "notes", panel: highlightsPanel, btn: btnNotes },
 ];
 let activeAssistTab = "tldr";
+let lastAssistSubtab = "tldr";
 
 function isAssistOpen(tab) {
   return assistPanel.classList.contains("open") && (!tab || activeAssistTab === tab);
@@ -360,14 +362,21 @@ function isAssistOpen(tab) {
 
 async function openAssist(tab) {
   activeAssistTab = tab;
+  if (tab === "tldr" || tab === "chat") {
+    if (typeof lastAssistSubtab !== "undefined") lastAssistSubtab = tab;
+  }
   assistPanel.classList.add("open");
   body.classList.add("assist-open");
-  btnAssist.classList.add("active");
+  btnAssist.classList.toggle("active", tab !== "notes");
+  if (typeof btnNotes !== "undefined" && btnNotes?.classList) {
+    btnNotes.classList.toggle("active", tab === "notes");
+  }
   ASSIST_TABS.forEach(({ name, panel, btn }) => {
-    panel.classList.toggle("active", name === tab);
-    btn.classList.toggle("active", name === tab);
+    if (panel) panel.classList.toggle("active", name === tab);
+    if (btn) btn.classList.toggle("active", name === tab);
   });
   assistPanel.classList.toggle("tab-chat", tab === "chat");
+  assistPanel.classList.toggle("tab-notes", tab === "notes");
   refreshReadHighlight();
 
   if (tab === "notes") renderAnnotationsPanel();
@@ -384,6 +393,9 @@ function closeAssist() {
   assistPanel.classList.remove("open");
   body.classList.remove("assist-open");
   btnAssist.classList.remove("active");
+  if (typeof btnNotes !== "undefined" && btnNotes?.classList) {
+    btnNotes.classList.remove("active");
+  }
   refreshReadHighlight();
 }
 
@@ -393,12 +405,23 @@ function toggleAssistTab(tab) {
 }
 
 btnAssist.addEventListener("click", () => {
-  if (assistPanel.classList.contains("open")) closeAssist();
-  else openAssist(activeAssistTab);
+  if (isAssistOpen("tldr") || isAssistOpen("chat")) {
+    closeAssist();
+  } else {
+    openAssist(lastAssistSubtab || "tldr");
+  }
 });
+if (btnNotes) {
+  btnNotes.addEventListener("click", () => {
+    if (isAssistOpen("notes")) {
+      closeAssist();
+    } else {
+      openAssist("notes");
+    }
+  });
+}
 btnTldr.addEventListener("click", () => openAssist("tldr"));
 btnChat.addEventListener("click", () => openAssist("chat"));
-btnHighlights.addEventListener("click", () => openAssist("notes"));
 btnCloseAssist.addEventListener("click", closeAssist);
 
 // --- More menu ---
@@ -430,12 +453,22 @@ menuAnnotations.addEventListener("click", () => {
 });
 
 document.addEventListener("click", (e) => {
+  if (!e.target.closest(".highlight-item")) {
+    highlightsList?.querySelectorAll(".highlight-item.confirming").forEach((el) => {
+      el.classList.remove("confirming");
+    });
+  }
   if (e.target.closest("#menu-popover") || e.target.closest("#btn-menu") || e.target.closest("#info-popover")) return;
   setMenuOpen(false);
 });
 
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
+  const confirming = highlightsList?.querySelector(".highlight-item.confirming");
+  if (confirming) {
+    confirming.classList.remove("confirming");
+    return;
+  }
   if (readVoicePopover.classList.contains("open")) setVoicePopoverOpen(false);
   else if (menuPopover.classList.contains("open")) setMenuOpen(false);
   else if (assistPanel.classList.contains("open")) closeAssist();
@@ -1390,13 +1423,22 @@ async function renderAnnotationsPanel() {
       ${a.comment ? `<div class="annotation-comment-note">${escapeHtml(a.comment)}</div>` : ""}
       <div class="highlight-meta">
         <span class="highlight-time">${TYPE_LABEL[a.type] || a.type} · ${formatTime(a.timestamp)}</span>
-        <button class="highlight-delete" data-id="${a.id}">Delete</button>
+        <button class="highlight-delete" data-id="${a.id}" title="Delete" aria-label="Delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+        </button>
+      </div>
+      <div class="highlight-confirm" role="alert">
+        <span class="highlight-confirm-msg">This action cannot be undone.</span>
+        <div class="highlight-confirm-actions">
+          <button class="highlight-confirm-cancel" type="button">Cancel</button>
+          <button class="highlight-confirm-delete" type="button" data-id="${a.id}">Delete</button>
+        </div>
       </div>
     `;
 
     // Click → scroll to annotation in article + flash
     item.addEventListener("click", (e) => {
-      if (e.target.closest(".highlight-delete")) return;
+      if (e.target.closest(".highlight-delete") || e.target.closest(".highlight-confirm")) return;
       const el = document.querySelector(`[data-annotation-id="${a.id}"]`);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1405,15 +1447,28 @@ async function renderAnnotationsPanel() {
       }
     });
 
-    highlightsList.appendChild(item);
-  });
+    const btnDel = item.querySelector(".highlight-delete");
+    const btnCancel = item.querySelector(".highlight-confirm-cancel");
+    const btnConfirm = item.querySelector(".highlight-confirm-delete");
 
-  highlightsList.querySelectorAll(".highlight-delete").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
+    btnDel.addEventListener("click", (e) => {
       e.stopPropagation();
-      const id = btn.dataset.id;
+      highlightsList.querySelectorAll(".highlight-item.confirming").forEach((other) => {
+        if (other !== item) other.classList.remove("confirming");
+      });
+      item.classList.add("confirming");
+    });
+
+    btnCancel.addEventListener("click", (e) => {
+      e.stopPropagation();
+      item.classList.remove("confirming");
+    });
+
+    btnConfirm.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const id = a.id;
       const stored2 = await chrome.storage.local.get("annotations");
-      const arr = (stored2.annotations || []).filter((a) => a.id !== id);
+      const arr = (stored2.annotations || []).filter((ann) => ann.id !== id);
       await chrome.storage.local.set({ annotations: arr });
 
       // Unwrap span from article DOM
@@ -1426,6 +1481,8 @@ async function renderAnnotationsPanel() {
 
       renderAnnotationsPanel();
     });
+
+    highlightsList.appendChild(item);
   });
 }
 

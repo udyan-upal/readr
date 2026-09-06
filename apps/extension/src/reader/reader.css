@@ -15,6 +15,9 @@
   --shadow-lg: 0 12px 32px rgba(46, 43, 37, 0.22);
   --ann-highlight: #FFC6A5;
   --ann-second: #8FA073;
+  --danger: #DC2626;
+  --danger-soft: rgba(220, 38, 38, 0.08);
+  --danger-border: rgba(220, 38, 38, 0.22);
 }
 
 [data-theme="sepia"] {
@@ -33,6 +36,9 @@
   --shadow-lg: 0 12px 32px rgba(46, 43, 37, 0.22);
   --ann-highlight: #FFBF99;
   --ann-second: #8FA073;
+  --danger: #C53030;
+  --danger-soft: rgba(197, 48, 48, 0.09);
+  --danger-border: rgba(197, 48, 48, 0.24);
 }
 
 [data-theme="dark"] {
@@ -51,6 +57,9 @@
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45);
   --ann-highlight: #643312;
   --ann-second: #728157;
+  --danger: #F87171;
+  --danger-soft: rgba(248, 113, 113, 0.14);
+  --danger-border: rgba(248, 113, 113, 0.32);
 }
 
 /* Reset & base */
@@ -898,6 +907,25 @@ a.info-value:hover { color: var(--accent); }
 }
 #notes-count { opacity: 0.6; font-weight: 500; }
 
+#notes-header-title {
+  display: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  padding-left: 4px;
+  height: 31px;
+  align-items: center;
+}
+
+#assist-panel.tab-notes #assist-tabs {
+  display: none;
+}
+
+#assist-panel.tab-notes #notes-header-title {
+  display: flex;
+}
+
 .assist-header-actions { display: flex; align-items: center; gap: 6px; }
 
 #chat-new {
@@ -1128,15 +1156,102 @@ a.info-value:hover { color: var(--accent); }
 }
 
 .highlight-delete {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.highlight-delete svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+}
+.highlight-delete:hover { background: var(--danger-soft); color: var(--danger); }
+
+.highlight-confirm {
+  display: none;
+  margin-top: 10px;
+  padding: 9px 12px;
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-border);
+  border-radius: 12px;
+  flex-direction: column;
+  gap: 8px;
+  animation: confirmFadeIn 0.15s ease-out;
+}
+
+@keyframes confirmFadeIn {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.highlight-item.confirming .highlight-confirm {
+  display: flex;
+}
+
+.highlight-item.confirming .highlight-delete {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.highlight-confirm-msg {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--danger);
+  font-weight: 500;
+}
+
+.highlight-confirm-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.highlight-confirm-cancel {
   border: 0;
   background: transparent;
   color: var(--text-secondary);
   font-size: 11.5px;
-  padding: 2px 8px;
+  font-weight: 500;
+  padding: 4px 10px;
   border-radius: 999px;
-  transition: background 0.15s, color 0.15s;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
 }
-.highlight-delete:hover { background: var(--soft); color: var(--ink); }
+
+.highlight-confirm-cancel:hover {
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.highlight-confirm-delete {
+  border: 0;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: opacity 0.12s, filter 0.12s;
+}
+
+[data-theme="dark"] .highlight-confirm-delete {
+  color: #1a1817;
+}
+
+.highlight-confirm-delete:hover {
+  filter: brightness(0.92);
+}
 
 .highlights-empty {
   margin: auto 0;
