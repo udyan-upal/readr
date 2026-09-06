@@ -67,6 +67,7 @@ let readAloudState = {
   isLoading: false,
   isPlaying: false,
   isPaused: false,
+  isCompleted: false,
   sessionId: 0,
   error: null,
 };
@@ -442,7 +443,7 @@ document.addEventListener("keydown", (e) => {
 window.addEventListener("scroll", () => {
   const docHeight = document.documentElement.scrollHeight - window.innerHeight;
   const pct = docHeight > 0 ? (window.scrollY / docHeight) * 100 : 0;
-  progressBar.style.width = `${Math.min(100, pct)}%`;
+  progressBar.style.width = `${readAloudState.isCompleted ? 100 : Math.min(100, pct)}%`;
   updateActiveTocItem();
 });
 
@@ -632,6 +633,7 @@ function formatTimeLeft(words, rate) {
 }
 
 function readStatusText() {
+  if (readAloudState.isCompleted) return "Finished";
   if (readAloudState.isLoading) return "Loading…";
   const remaining = Math.max(0, readAloudState.words.length - Math.max(0, readAloudState.currentWordIndex));
   if (!readAloudState.words.length) return "Ready";
@@ -646,10 +648,12 @@ function setVoicePopoverOpen(open) {
 function updateReadAloudUI() {
   const active = readAloudState.isPlaying || readAloudState.isPaused || readAloudState.isLoading;
   btnRead.classList.toggle("active", active);
-  readPlayer.classList.toggle("open", readAloudState.isLoading || active || !!readAloudState.error);
+  readPlayer.classList.toggle("open", readAloudState.isLoading || active || readAloudState.isCompleted || !!readAloudState.error);
   readPlayer.classList.toggle("playing", readAloudState.isPlaying);
-  readPlayPause.title = readAloudState.isPlaying ? "Pause" : "Play";
-  readPlayPause.setAttribute("aria-label", readAloudState.isPlaying ? "Pause" : "Play");
+  readPlayer.classList.toggle("completed", readAloudState.isCompleted);
+  const playLabel = readAloudState.isCompleted ? "Replay from beginning" : readAloudState.isPlaying ? "Pause" : "Play";
+  readPlayPause.title = playLabel;
+  readPlayPause.setAttribute("aria-label", playLabel);
   readPlayPause.disabled = readAloudState.isLoading;
   readStatus.textContent = readStatusText();
   readVoiceLabel.textContent = VOICE_LABEL[readAloudState.selectedVoice] || readAloudState.selectedVoice;
@@ -661,7 +665,7 @@ function updateReadAloudUI() {
   });
   const total = Math.max(1, readAloudState.words.length - 1);
   const pct = readAloudState.currentWordIndex > 0 ? (readAloudState.currentWordIndex / total) * 100 : 0;
-  readProgressFill.style.width = `${Math.min(100, pct)}%`;
+  readProgressFill.style.width = `${readAloudState.isCompleted ? 100 : Math.min(100, pct)}%`;
 }
 
 function setReadFollow(enabled) {
@@ -867,7 +871,7 @@ function clearPrefetchedReadClip() {
 async function speakReadChunk(chunkIndex) {
   const chunk = readAloudState.chunks[chunkIndex];
   if (!chunk) {
-    stopReadAloud({ keepPlayerOpen: false });
+    finishReadAloud();
     return;
   }
 
@@ -940,6 +944,7 @@ function startReadAloud(startIndex = 0) {
   clearReadAudio();
   clearPrefetchedReadClip();
   clearDoneReadWords();
+  readAloudState.isCompleted = false;
   const safeStart = Math.max(0, Math.min(startIndex, readAloudState.words.length - 1));
   readAloudState.chunks = buildReadAloudChunks(safeStart);
   const voice = EDGE_TTS_VOICES[readAloudState.selectedVoice];
@@ -979,6 +984,7 @@ async function resumeReadAloud() {
 }
 
 function stopReadAloud({ keepPlayerOpen = false } = {}) {
+  readAloudState.isCompleted = false;
   setVoicePopoverOpen(false);
   readAloudState.sessionId += 1;
   clearReadAudio();
@@ -995,9 +1001,20 @@ function stopReadAloud({ keepPlayerOpen = false } = {}) {
   updateReadAloudUI();
 }
 
+function finishReadAloud() {
+  stopReadAloud();
+  readAloudState.isCompleted = true;
+  updateDoneReadWords(readAloudState.words.length);
+  updateReadAloudUI();
+}
+
 function toggleReadAloud() {
   if (readAloudState.isLoading) return;
-  if (readAloudState.isPlaying) {
+  if (readAloudState.isCompleted) {
+    setReadFollow(true);
+    startReadAloud(0);
+    followCurrentReadWord(readAloudState.words[0]?.el, true);
+  } else if (readAloudState.isPlaying) {
     pauseReadAloud();
   } else if (readAloudState.isPaused) {
     resumeReadAloud();
