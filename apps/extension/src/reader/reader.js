@@ -61,6 +61,7 @@ let readAloudState = {
   audioUrl: null,
   animationFrameId: null,
   buffer: null,
+  followPlayback: true,
   selectedVoice: "emma",
   rate: DEFAULT_READ_RATE,
   isLoading: false,
@@ -183,6 +184,7 @@ const readProgressFill = document.getElementById("read-progress-fill");
 const readPlayPause = document.getElementById("read-play-pause");
 const readStop = document.getElementById("read-stop");
 const readStatus = document.getElementById("read-status");
+const readFollow = document.getElementById("read-follow");
 const readRateCycle = document.getElementById("read-rate-cycle");
 const readVoiceToggle = document.getElementById("read-voice-toggle");
 const readVoiceLabel = document.getElementById("read-voice-label");
@@ -466,6 +468,7 @@ function buildTableOfContents() {
     item.textContent = heading.textContent.trim();
     item.dataset.target = heading.id;
     item.addEventListener("click", () => {
+      handleManualReadScroll();
       const targetY = heading.getBoundingClientRect().top + window.scrollY - 92;
       window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
     });
@@ -661,6 +664,53 @@ function updateReadAloudUI() {
   readProgressFill.style.width = `${Math.min(100, pct)}%`;
 }
 
+function setReadFollow(enabled) {
+  readAloudState.followPlayback = enabled;
+  readFollow.setAttribute("aria-pressed", String(enabled));
+  readFollow.textContent = enabled ? "Following" : "Follow";
+  readFollow.title = enabled ? "Turn off auto-scroll" : "Return to the spoken text and follow playback";
+}
+
+function followCurrentReadWord(word, force = false) {
+  if (!readAloudState.followPlayback || !word) return;
+  const rect = word.getBoundingClientRect();
+  // Leave visible words in place instead of recentering on every word.
+  if (force || rect.top < 100 || rect.bottom > window.innerHeight - 150) {
+    word.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
+function stopReadFollow() {
+  if (!readAloudState.followPlayback) return;
+  setReadFollow(false);
+  // Cancel any smooth auto-scroll already in progress without moving the page.
+  window.scrollTo({ top: window.scrollY, left: window.scrollX, behavior: "instant" });
+}
+
+readFollow.addEventListener("click", () => {
+  if (readAloudState.followPlayback) stopReadFollow();
+  else {
+    setReadFollow(true);
+    followCurrentReadWord(readAloudState.words[readAloudState.currentWordIndex]?.el, true);
+  }
+});
+function handleManualReadScroll() {
+  if (readAloudState.isPlaying || readAloudState.isPaused || readAloudState.isLoading) stopReadFollow();
+}
+
+window.addEventListener("wheel", handleManualReadScroll, { passive: true });
+window.addEventListener("touchmove", handleManualReadScroll, { passive: true });
+// Includes scrollbar dragging, section links and annotation navigation.
+window.addEventListener("pointerdown", (event) => {
+  if (!event.target.closest?.("#read-player")) handleManualReadScroll();
+}, { passive: true });
+window.addEventListener("keydown", (event) => {
+  if (event.target.closest?.("input, textarea, select, [contenteditable], button")) return;
+  if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) {
+    handleManualReadScroll();
+  }
+});
+
 function setCurrentReadWord(index, scroll = true) {
   if (index === readAloudState.currentWordIndex) return;
   const previous = readAloudState.words[readAloudState.currentWordIndex]?.el;
@@ -673,7 +723,7 @@ function setCurrentReadWord(index, scroll = true) {
     current.classList.remove("read-word-done");
     current.classList.add("read-word-current");
     positionReadHighlight(current);
-    if (scroll) current.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (scroll) followCurrentReadWord(current);
   }
   updateReadAloudUI();
 }

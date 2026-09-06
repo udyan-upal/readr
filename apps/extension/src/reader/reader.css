@@ -526,7 +526,7 @@ body.assist-open #read-player { left: calc(50% - 174px); }
 
 .pill-divider { width: 1px; height: 24px; background: var(--border); }
 
-#read-rate-cycle {
+#read-rate-cycle, #read-follow {
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-primary);
@@ -536,7 +536,7 @@ body.assist-open #read-player { left: calc(50% - 174px); }
   font-weight: 600;
   min-width: 58px;
 }
-#read-rate-cycle:hover { background: var(--soft); color: var(--ink); border-color: var(--accent); }
+#read-rate-cycle:hover, #read-follow:hover { background: var(--soft); color: var(--ink); border-color: var(--accent); }
 
 #read-stop {
   width: 32px;
@@ -1174,3 +1174,5 @@ a.info-value:hover { color: var(--accent); }
   #assist-panel { width: 100%; flex-basis: 100%; }
   #info-popover { right: 12px; }
 }
+
+#read-follow[aria-pressed="true"] { background: var(--soft); color: var(--accent); border-color: var(--accent); }
