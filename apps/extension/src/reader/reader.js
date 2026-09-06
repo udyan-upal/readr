@@ -1,3 +1,5 @@
+import { buildProgressiveChunks, TtsBuffer } from "./tts-buffer.mjs";
+
 /* global __OPENROUTER_API_KEY__, __OPENROUTER_MODEL__, __NVIDIA_API_KEY__ */
 const OPENROUTER_API_KEY = __OPENROUTER_API_KEY__;
 const OPENROUTER_MODEL = __OPENROUTER_MODEL__;
@@ -58,9 +60,7 @@ let readAloudState = {
   audio: null,
   audioUrl: null,
   animationFrameId: null,
-  prefetchedClip: null,
-  prefetchPromise: null,
-  prefetchChunkIndex: -1,
+  buffer: null,
   selectedVoice: "emma",
   rate: DEFAULT_READ_RATE,
   isLoading: false,
@@ -509,26 +509,39 @@ function base64ToAudioUrl(base64) {
   return URL.createObjectURL(new Blob([bytes], { type: "audio/mpeg" }));
 }
 
-async function fetchEdgeTtsClip(chunk) {
+async function fetchEdgeTtsClip(chunk, signal, voice, rate) {
   const response = await fetch(EDGE_TTS_API_URL, {
     method: "POST",
+    signal,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       text: chunk.text,
-      voice: EDGE_TTS_VOICES[readAloudState.selectedVoice],
-      rate: rateToEdgeRate(readAloudState.rate),
+      voice,
+      rate,
     }),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || `TTS failed (${response.status})`);
   if (!data.audio) throw new Error("TTS returned no audio.");
+  signal.throwIfAborted();
+  const url = base64ToAudioUrl(data.audio);
+  const audio = new Audio();
+  audio.preload = "auto";
+  audio.src = url;
+  audio.load();
   return {
-    url: base64ToAudioUrl(data.audio),
+    url,
+    audio,
     boundaries: Array.isArray(data.boundaries) ? data.boundaries : [],
   };
 }
 
 function releaseEdgeTtsClip(clip) {
+  if (clip?.audio) {
+    clip.audio.pause();
+    clip.audio.removeAttribute("src");
+    clip.audio.load();
+  }
   if (clip?.url) URL.revokeObjectURL(clip.url);
 }
 
@@ -600,39 +613,7 @@ function prepareReadAloudWords() {
 }
 
 function buildReadAloudChunks(startIndex) {
-  const chunks = [];
-  const maxChars = 1500;
-  const words = readAloudState.words;
-  const fullText = readAloudState.fullText;
-  let i = Math.max(0, startIndex);
-
-  while (i < words.length) {
-    const wordStart = i;
-    const rawStartChar = words[wordStart].charStart;
-    let wordEnd = wordStart;
-
-    while (
-      wordEnd + 1 < words.length &&
-      words[wordEnd + 1].charStart - rawStartChar <= maxChars
-    ) {
-      wordEnd++;
-    }
-
-    const rawEndChar = wordEnd + 1 < words.length ? words[wordEnd + 1].charStart : fullText.length;
-    const rawText = fullText.slice(rawStartChar, rawEndChar);
-    const leadingTrim = rawText.length - rawText.trimStart().length;
-    const text = rawText.trim();
-    const startChar = rawStartChar + leadingTrim;
-
-    chunks.push({
-      text,
-      wordStart,
-      wordEnd,
-      charStarts: words.slice(wordStart, wordEnd + 1).map((word) => Math.max(0, word.charStart - startChar)),
-    });
-    i = wordEnd + 1;
-  }
-  return chunks;
+  return buildProgressiveChunks(readAloudState.words, readAloudState.fullText, startIndex);
 }
 
 const READ_RATES = [0.75, 1, 1.25, 1.5, 2];
@@ -658,7 +639,7 @@ function setVoicePopoverOpen(open) {
 }
 
 function updateReadAloudUI() {
-  const active = readAloudState.isPlaying || readAloudState.isPaused;
+  const active = readAloudState.isPlaying || readAloudState.isPaused || readAloudState.isLoading;
   btnRead.classList.toggle("active", active);
   readPlayer.classList.toggle("open", readAloudState.isLoading || active || !!readAloudState.error);
   readPlayer.classList.toggle("playing", readAloudState.isPlaying);
@@ -827,45 +808,8 @@ function clearReadAudio() {
 }
 
 function clearPrefetchedReadClip() {
-  releaseEdgeTtsClip(readAloudState.prefetchedClip);
-  readAloudState.prefetchedClip = null;
-  readAloudState.prefetchPromise = null;
-  readAloudState.prefetchChunkIndex = -1;
-}
-
-function prefetchReadChunk(chunkIndex, sessionId) {
-  const chunk = readAloudState.chunks[chunkIndex];
-  if (!chunk) return;
-  if (readAloudState.prefetchChunkIndex === chunkIndex) return;
-
-  clearPrefetchedReadClip();
-  readAloudState.prefetchChunkIndex = chunkIndex;
-  readAloudState.prefetchPromise = fetchEdgeTtsClip(chunk)
-    .then((clip) => {
-      if (
-        sessionId !== readAloudState.sessionId ||
-        readAloudState.prefetchChunkIndex !== chunkIndex
-      ) {
-        releaseEdgeTtsClip(clip);
-        return null;
-      }
-      readAloudState.prefetchedClip = clip;
-      return clip;
-    })
-    .catch(() => null);
-}
-
-async function getReadClip(chunkIndex, chunk, sessionId) {
-  if (readAloudState.prefetchChunkIndex === chunkIndex) {
-    const clip = readAloudState.prefetchedClip || await readAloudState.prefetchPromise;
-    if (clip && sessionId === readAloudState.sessionId) {
-      readAloudState.prefetchedClip = null;
-      readAloudState.prefetchPromise = null;
-      readAloudState.prefetchChunkIndex = -1;
-      return clip;
-    }
-  }
-  return fetchEdgeTtsClip(chunk);
+  readAloudState.buffer?.close();
+  readAloudState.buffer = null;
 }
 
 async function speakReadChunk(chunkIndex) {
@@ -876,6 +820,8 @@ async function speakReadChunk(chunkIndex) {
   }
 
   readAloudState.currentChunkIndex = chunkIndex;
+  readAloudState.isPlaying = false;
+  readAloudState.isPaused = false;
   const sessionId = readAloudState.sessionId;
   readAloudState.isLoading = true;
   readAloudState.error = null;
@@ -883,13 +829,14 @@ async function speakReadChunk(chunkIndex) {
 
   try {
     clearReadAudio();
-    const clip = await getReadClip(chunkIndex, chunk, sessionId);
+    const clip = await readAloudState.buffer.take(chunkIndex);
     if (sessionId !== readAloudState.sessionId) {
       releaseEdgeTtsClip(clip);
       return;
     }
 
-    const audio = new Audio(clip.url);
+    if (!clip) return;
+    const audio = clip.audio;
     readAloudState.audio = audio;
     readAloudState.audioUrl = clip.url;
     readAloudState.boundaries = clip.boundaries;
@@ -908,6 +855,7 @@ async function speakReadChunk(chunkIndex) {
       readAloudState.isLoading = false;
       readAloudState.isPlaying = false;
       readAloudState.isPaused = false;
+      clearPrefetchedReadClip();
       readAloudState.error = "Could not play Edge TTS audio.";
       updateReadAloudUI();
     };
@@ -916,12 +864,13 @@ async function speakReadChunk(chunkIndex) {
     readAloudState.isPlaying = true;
     readAloudState.isPaused = false;
     updateReadAloudUI();
-    prefetchReadChunk(chunkIndex + 1, sessionId);
     await audio.play();
+    if (sessionId !== readAloudState.sessionId) return;
     startReadTicker(sessionId, chunk);
   } catch (err) {
     if (sessionId !== readAloudState.sessionId) return;
     clearReadAudio();
+    clearPrefetchedReadClip();
     readAloudState.isLoading = false;
     readAloudState.isPlaying = false;
     readAloudState.isPaused = false;
@@ -940,6 +889,13 @@ function startReadAloud(startIndex = 0) {
   clearDoneReadWords();
   const safeStart = Math.max(0, Math.min(startIndex, readAloudState.words.length - 1));
   readAloudState.chunks = buildReadAloudChunks(safeStart);
+  const voice = EDGE_TTS_VOICES[readAloudState.selectedVoice];
+  const rate = rateToEdgeRate(readAloudState.rate);
+  readAloudState.buffer = new TtsBuffer(
+    readAloudState.chunks,
+    (chunk, signal) => fetchEdgeTtsClip(chunk, signal, voice, rate),
+    releaseEdgeTtsClip,
+  );
   readAloudState.currentChunkIndex = 0;
   readAloudState.isLoading = false;
   readAloudState.isPlaying = false;
@@ -987,6 +943,7 @@ function stopReadAloud({ keepPlayerOpen = false } = {}) {
 }
 
 function toggleReadAloud() {
+  if (readAloudState.isLoading) return;
   if (readAloudState.isPlaying) {
     pauseReadAloud();
   } else if (readAloudState.isPaused) {
@@ -1011,11 +968,11 @@ readVoiceGroup.addEventListener("click", async (e) => {
   setVoicePopoverOpen(false);
   if (btn.dataset.voice === readAloudState.selectedVoice) return;
   readAloudState.selectedVoice = btn.dataset.voice;
-  await chrome.storage.local.set({ readVoice: readAloudState.selectedVoice });
   const restartAt = Math.max(0, readAloudState.currentWordIndex);
-  const wasActive = readAloudState.isPlaying || readAloudState.isPaused;
+  const wasActive = readAloudState.isPlaying || readAloudState.isPaused || readAloudState.isLoading;
   updateReadAloudUI();
   if (wasActive) startReadAloud(restartAt);
+  await chrome.storage.local.set({ readVoice: readAloudState.selectedVoice });
 });
 
 document.addEventListener("click", (e) => {
@@ -1025,11 +982,11 @@ document.addEventListener("click", (e) => {
 readRateCycle.addEventListener("click", async () => {
   const index = READ_RATES.indexOf(readAloudState.rate);
   readAloudState.rate = READ_RATES[(index + 1) % READ_RATES.length];
-  await chrome.storage.local.set({ readRate: readAloudState.rate });
   const restartAt = Math.max(0, readAloudState.currentWordIndex);
-  const wasActive = readAloudState.isPlaying || readAloudState.isPaused;
+  const wasActive = readAloudState.isPlaying || readAloudState.isPaused || readAloudState.isLoading;
   updateReadAloudUI();
   if (wasActive) startReadAloud(restartAt);
+  await chrome.storage.local.set({ readRate: readAloudState.rate });
 });
 
 window.addEventListener("beforeunload", () => stopReadAloud({ keepPlayerOpen: false }));
