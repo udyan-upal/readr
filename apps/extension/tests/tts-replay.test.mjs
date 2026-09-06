@@ -17,7 +17,7 @@ function setup() {
     readVoiceLabel: element(), readRateCycle: element(), readError: element(), readProgressFill: element(),
     readHighlightPill: element(), readVoiceGroup: { querySelectorAll: () => [] },
     VOICE_LABEL: { chris: 'Chris' }, EDGE_TTS_VOICES: { chris: 'en-US-ChristopherNeural' },
-    setVoicePopoverOpen() {}, clearReadAudio() { state.audio = null; }, clearPrefetchedReadClip() { state.buffer = null; },
+    updateReadReturnButton() {}, setVoicePopoverOpen() {}, clearReadAudio() { state.audio = null; }, clearPrefetchedReadClip() { state.buffer = null; },
     clearDoneReadWords() {}, updateDoneReadWords(index) { state.doneUntilIndex = index - 1; },
     setReadFollow(value) { state.followPlayback = value; }, followCurrentReadWord() {},
     buildReadAloudChunks(index) { started.push(index); return [{ wordStart: index }]; },
