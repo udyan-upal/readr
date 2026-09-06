@@ -497,9 +497,10 @@ const EDGE_TTS_VOICES = {
   emma: "en-US-EmmaNeural",
 };
 
-function rateToEdgeRate(rate) {
-  const pct = Math.round((rate - 1) * 100);
-  return `${pct >= 0 ? "+" : ""}${pct}%`;
+function applyReadPlaybackRate(audio = readAloudState.audio) {
+  if (!audio) return;
+  audio.preservesPitch = true;
+  audio.playbackRate = readAloudState.rate;
 }
 
 function base64ToAudioUrl(base64) {
@@ -509,7 +510,7 @@ function base64ToAudioUrl(base64) {
   return URL.createObjectURL(new Blob([bytes], { type: "audio/mpeg" }));
 }
 
-async function fetchEdgeTtsClip(chunk, signal, voice, rate) {
+async function fetchEdgeTtsClip(chunk, signal, voice) {
   const response = await fetch(EDGE_TTS_API_URL, {
     method: "POST",
     signal,
@@ -517,7 +518,8 @@ async function fetchEdgeTtsClip(chunk, signal, voice, rate) {
     body: JSON.stringify({
       text: chunk.text,
       voice,
-      rate,
+      // Keep audio and word boundaries on the normal-speed media timeline.
+      rate: "+0%",
     }),
   });
   const data = await response.json().catch(() => ({}));
@@ -837,6 +839,7 @@ async function speakReadChunk(chunkIndex) {
 
     if (!clip) return;
     const audio = clip.audio;
+    applyReadPlaybackRate(audio);
     readAloudState.audio = audio;
     readAloudState.audioUrl = clip.url;
     readAloudState.boundaries = clip.boundaries;
@@ -890,10 +893,9 @@ function startReadAloud(startIndex = 0) {
   const safeStart = Math.max(0, Math.min(startIndex, readAloudState.words.length - 1));
   readAloudState.chunks = buildReadAloudChunks(safeStart);
   const voice = EDGE_TTS_VOICES[readAloudState.selectedVoice];
-  const rate = rateToEdgeRate(readAloudState.rate);
   readAloudState.buffer = new TtsBuffer(
     readAloudState.chunks,
-    (chunk, signal) => fetchEdgeTtsClip(chunk, signal, voice, rate),
+    (chunk, signal) => fetchEdgeTtsClip(chunk, signal, voice),
     releaseEdgeTtsClip,
   );
   readAloudState.currentChunkIndex = 0;
@@ -918,6 +920,7 @@ async function resumeReadAloud() {
     startReadAloud(Math.max(0, readAloudState.currentWordIndex));
     return;
   }
+  applyReadPlaybackRate();
   await readAloudState.audio.play();
   readAloudState.isPlaying = true;
   readAloudState.isPaused = false;
@@ -982,10 +985,8 @@ document.addEventListener("click", (e) => {
 readRateCycle.addEventListener("click", async () => {
   const index = READ_RATES.indexOf(readAloudState.rate);
   readAloudState.rate = READ_RATES[(index + 1) % READ_RATES.length];
-  const restartAt = Math.max(0, readAloudState.currentWordIndex);
-  const wasActive = readAloudState.isPlaying || readAloudState.isPaused || readAloudState.isLoading;
+  applyReadPlaybackRate();
   updateReadAloudUI();
-  if (wasActive) startReadAloud(restartAt);
   await chrome.storage.local.set({ readRate: readAloudState.rate });
 });
 
