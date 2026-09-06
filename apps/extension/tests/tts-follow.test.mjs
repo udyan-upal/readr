@@ -11,12 +11,13 @@ function setup() {
   const state = { followPlayback: true, isPlaying: true, words: [{ el: word }], currentWordIndex: 0 };
   const context = vm.createContext({
     readAloudState: state,
-    readFollow: { setAttribute() {}, addEventListener: (_, fn) => { click = fn; } },
+    readPlayPause: { focus() {} },
+    readFollow: { hidden: true, setAttribute() {}, addEventListener: (_, fn) => { click = fn; } },
     window: { innerHeight: 900, scrollX: 0, scrollY: 500, scrollTo: () => cancellations++, addEventListener: (name, fn) => { events[name] = fn; } },
     word,
   });
   vm.runInContext(source.slice(source.indexOf('function setReadFollow('), source.indexOf('function setCurrentReadWord(')), context);
-  return { events, state, word, click: () => click(), follow: () => vm.runInContext('followCurrentReadWord(word)', context), scrolls: () => scrolls, cancellations: () => cancellations };
+  return { events, state, word, context, click: () => click(), follow: () => vm.runInContext('followCurrentReadWord(word)', context), scrolls: () => scrolls, cancellations: () => cancellations };
 }
 
 test('manual scrolling disables following until explicitly re-enabled', () => {
@@ -25,11 +26,13 @@ test('manual scrolling disables following until explicitly re-enabled', () => {
     h.follow();
     assert.equal(h.scrolls(), 1);
     h.events[event]();
+    assert.equal(h.context.readFollow.hidden, false);
     h.follow();
     assert.equal(h.scrolls(), 1);
     assert.equal(h.cancellations(), 1);
     assert.equal(h.state.isPlaying, true);
     h.click();
+    assert.equal(h.context.readFollow.hidden, true);
     assert.equal(h.state.followPlayback, true);
     assert.equal(h.scrolls(), 2);
   }
@@ -58,4 +61,13 @@ test('scrolling before playback does not disable the initial follow behavior', (
   h.state.isPlaying = false;
   h.events.wheel();
   assert.equal(h.state.followPlayback, true);
+});
+
+test('return action disappears after playback ends', () => {
+  const h = setup();
+  h.events.wheel();
+  assert.equal(h.context.readFollow.hidden, false);
+  h.state.isPlaying = false;
+  vm.runInContext('updateReadReturnButton()', h.context);
+  assert.equal(h.context.readFollow.hidden, true);
 });

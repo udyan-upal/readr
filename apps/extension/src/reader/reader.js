@@ -646,6 +646,7 @@ function setVoicePopoverOpen(open) {
 }
 
 function updateReadAloudUI() {
+  updateReadReturnButton();
   const active = readAloudState.isPlaying || readAloudState.isPaused || readAloudState.isLoading;
   btnRead.classList.toggle("active", active);
   readPlayer.classList.toggle("open", readAloudState.isLoading || active || readAloudState.isCompleted || !!readAloudState.error);
@@ -670,9 +671,12 @@ function updateReadAloudUI() {
 
 function setReadFollow(enabled) {
   readAloudState.followPlayback = enabled;
-  readFollow.setAttribute("aria-pressed", String(enabled));
-  readFollow.textContent = enabled ? "Following" : "Follow";
-  readFollow.title = enabled ? "Turn off auto-scroll" : "Return to the spoken text and follow playback";
+  updateReadReturnButton();
+}
+
+function updateReadReturnButton() {
+  const active = readAloudState.isPlaying || readAloudState.isPaused || readAloudState.isLoading;
+  readFollow.hidden = readAloudState.followPlayback || !active;
 }
 
 function followCurrentReadWord(word, force = false) {
@@ -692,11 +696,9 @@ function stopReadFollow() {
 }
 
 readFollow.addEventListener("click", () => {
-  if (readAloudState.followPlayback) stopReadFollow();
-  else {
-    setReadFollow(true);
-    followCurrentReadWord(readAloudState.words[readAloudState.currentWordIndex]?.el, true);
-  }
+  setReadFollow(true);
+  followCurrentReadWord(readAloudState.words[readAloudState.currentWordIndex]?.el, true);
+  readPlayPause.focus();
 });
 function handleManualReadScroll() {
   if (readAloudState.isPlaying || readAloudState.isPaused || readAloudState.isLoading) stopReadFollow();
