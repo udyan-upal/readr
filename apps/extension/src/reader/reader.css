@@ -1202,3 +1202,26 @@ a.info-value:hover { color: var(--accent); }
 #read-follow svg { width: 16px; height: 16px; flex-shrink: 0; }
 #read-follow:hover { background: var(--soft); border-color: var(--accent); }
 #read-follow:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+#summary-empty {
+  padding: 24px 18px;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--soft);
+}
+#summary-empty[hidden], #summary-status[hidden] { display: none; }
+#summary-empty h3 { margin: 0 0 10px; font-size: 18px; line-height: 1.35; color: var(--text-primary); }
+#summary-empty p { margin: 0 0 20px; font-size: 14px; line-height: 1.6; color: var(--text-secondary); }
+#summary-generate {
+  border: 0;
+  border-radius: 999px;
+  padding: 11px 18px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+#summary-generate:hover { background: var(--accent-hover); }
+#summary-generate:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+#summary-status { margin: 12px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }

@@ -38,6 +38,7 @@ function normalizeSize(value) {
 }
 let currentSettings = { ...DEFAULT_SETTINGS };
 let summaryGenerating = false;
+let summaryError = "";
 let chatGenerating = false;
 let chatHistory = [];
 const CHAT_HISTORY_LIMIT = 20;
@@ -265,6 +266,8 @@ function renderArticle(article) {
   articleBody.innerHTML = article.content || "";
   resetChat();
   summaryText.textContent = "";
+  summaryError = "";
+  updateSummaryUI();
   summaryCursor.classList.add("done");
   summaryRegen.classList.remove("visible");
   articleAiRestore = restoreArticleAiState(article, loadId);
@@ -371,8 +374,8 @@ async function openAssist(tab) {
   if (tab === "tldr") {
     const articleKey = getArticleKey();
     await articleAiRestore;
-    if (articleKey === getArticleKey() && isAssistOpen("tldr") && !summaryText.textContent) {
-      streamSummary();
+    if (articleKey === getArticleKey() && isAssistOpen("tldr")) {
+      updateSummaryUI();
     }
   }
 }
@@ -1434,10 +1437,23 @@ const summaryText = document.getElementById("summary-text");
 const summaryCursor = document.getElementById("summary-cursor");
 const summaryRegen = document.getElementById("summary-regen");
 
-document.getElementById("summary-regen").addEventListener("click", () => {
-  if (summaryGenerating) return;
-  streamSummary();
-});
+const summaryEmpty = document.getElementById("summary-empty");
+const summaryGenerate = document.getElementById("summary-generate");
+const summaryStatus = document.getElementById("summary-status");
+
+function updateSummaryUI() {
+  const hasSummary = !!summaryText.textContent.trim();
+  summaryEmpty.hidden = hasSummary || summaryGenerating;
+  summaryGenerate.disabled = summaryGenerating;
+  summaryRegen.disabled = summaryGenerating;
+  summaryRegen.classList.toggle("visible", hasSummary && !summaryGenerating);
+  summaryStatus.textContent = summaryGenerating ? "Creating your summary…" : summaryError;
+  summaryStatus.hidden = !summaryStatus.textContent;
+  summaryGenerate.textContent = summaryError ? "Try again" : "Generate summary";
+}
+
+summaryGenerate.addEventListener("click", () => streamSummary());
+summaryRegen.addEventListener("click", () => streamSummary());
 
 // ─────────────────────────────────────────
 // Chat — concise article Q&A
@@ -1476,7 +1492,7 @@ async function restoreArticleAiState(article, loadId) {
     const savedSummary = typeof saved?.summary === "string" ? saved.summary : "";
     summaryText.textContent = savedSummary;
     summaryCursor.classList.add("done");
-    summaryRegen.classList.toggle("visible", !!savedSummary);
+    updateSummaryUI();
     chatHistory = sanitizeChatHistory(saved?.chatHistory);
     renderChatHistory();
   } catch (error) {
@@ -1703,8 +1719,11 @@ chatForm.addEventListener("submit", async (e) => {
 
 async function streamSummary() {
   if (!currentArticle || summaryGenerating) return;
-  summaryGenerating = true;
   const articleKey = getArticleKey();
+  await articleAiRestore;
+  if (articleKey !== getArticleKey() || summaryGenerating) return;
+  summaryGenerating = true;
+  summaryError = "";
   const previousSummary = summaryText.textContent;
   const controller = new AbortController();
   summaryRequestController?.abort();
@@ -1713,7 +1732,7 @@ async function streamSummary() {
   summaryText.textContent = "";
   summaryCursor.classList.remove("done");
   summaryRegen.classList.remove("visible");
-  btnTldr.classList.add("active");
+  updateSummaryUI();
 
   const prompt =
     `Summarize the following article in exactly 5 bullet points using "•" as the bullet character. ` +
@@ -1744,7 +1763,8 @@ async function streamSummary() {
     }
   } catch (err) {
     if (!controller.signal.aborted) {
-      summaryText.textContent = previousSummary || "Could not generate summary. Check the AI configuration or try again.";
+      summaryText.textContent = previousSummary;
+      summaryError = "Couldn’t create a summary. Please try again.";
     }
   } finally {
     if (summaryRequestController === controller) {
@@ -1752,6 +1772,7 @@ async function streamSummary() {
       summaryCursor.classList.add("done");
       summaryRegen.classList.toggle("visible", !!summaryText.textContent);
       summaryGenerating = false;
+      updateSummaryUI();
     }
   }
 }

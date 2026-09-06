@@ -84,8 +84,14 @@
 
     <section class="assist-tab" id="summary-panel" role="tabpanel">
       <div id="summary-body">
+        <div id="summary-empty">
+          <h3>The key ideas, in a few bullets</h3>
+          <p>Create a quick summary of this article whenever you’re ready.</p>
+          <button id="summary-generate" type="button">Generate summary</button>
+        </div>
+        <p id="summary-status" role="status" aria-live="polite" hidden></p>
         <div id="summary-content">
-          <span id="summary-text"></span><span id="summary-cursor">|</span>
+          <span id="summary-text"></span><span id="summary-cursor" class="done">|</span>
         </div>
         <div id="summary-footer">
           <button id="summary-regen">
