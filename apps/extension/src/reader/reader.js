@@ -1164,8 +1164,8 @@ document.addEventListener("mouseup", (e) => {
   }
 
   pendingRange = sel.getRangeAt(0).cloneRange();
-  positionToolbar(pendingRange);
   annotationToolbar.style.display = "flex";
+  positionToolbar(pendingRange);
 });
 
 document.addEventListener("mousedown", (e) => {
@@ -1181,11 +1181,12 @@ document.addEventListener("mousedown", (e) => {
 
 function positionToolbar(range) {
   const rect = range.getBoundingClientRect();
-  const approxW = 380;
-  let left = rect.left + rect.width / 2 - approxW / 2;
-  let top = rect.top - 48 + window.scrollY;
+  const toolbarRect = annotationToolbar.getBoundingClientRect();
+  const width = toolbarRect.width;
+  let left = rect.left + rect.width / 2 - width / 2;
+  let top = rect.top - toolbarRect.height - 8 + window.scrollY;
   if (rect.top < 80) top = rect.bottom + window.scrollY + 8;
-  left = Math.max(8, Math.min(left, window.innerWidth - approxW - 8));
+  left = Math.max(8, Math.min(left, window.innerWidth - width - 8));
   annotationToolbar.style.left = left + "px";
   annotationToolbar.style.top = top + "px";
 }
@@ -1196,10 +1197,37 @@ function hideAnnotationUI() {
   pendingRange = null;
 }
 
+function readWordIndexAtRange(range) {
+  // Use DOM position, not text search: repeated passages must seek correctly.
+  const start = range.cloneRange();
+  start.collapse(true);
+  for (let index = 0; index < readAloudState.words.length; index++) {
+    const el = readAloudState.words[index].el;
+    if (!articleBody.contains(el)) continue;
+    const wordEnd = document.createRange();
+    wordEnd.selectNodeContents(el);
+    wordEnd.collapse(false);
+    if (start.comparePoint(wordEnd.endContainer, wordEnd.endOffset) > 0) return index;
+  }
+  return -1;
+}
+
 annotationToolbar.addEventListener("click", async (e) => {
   const btn = e.target.closest(".annotation-tool-btn");
   if (!btn || !pendingRange) return;
   const type = btn.dataset.type;
+
+  if (type === "listen") {
+    const startIndex = readWordIndexAtRange(pendingRange);
+    hideAnnotationUI();
+    window.getSelection()?.removeAllRanges();
+    if (startIndex >= 0) {
+      setReadFollow(true);
+      startReadAloud(startIndex);
+      followCurrentReadWord(readAloudState.words[startIndex]?.el, true);
+    }
+    return;
+  }
 
   if (type === "ask") {
     const quote = pendingRange.toString().trim();

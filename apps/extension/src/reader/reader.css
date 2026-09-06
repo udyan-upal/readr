@@ -733,6 +733,9 @@ a.info-value:hover { color: var(--accent); }
 /* ─── Selection toolbar ─── */
 
 #annotation-toolbar {
+  flex-wrap: wrap;
+  max-width: calc(100vw - 16px);
+  box-sizing: border-box;
   position: absolute;
   display: none;
   align-items: center;
