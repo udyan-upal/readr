@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server'
+import { getUserId, unauthorized } from '@/lib/require-user'
 import { createAdminClient } from '@/utils/supabase/admin'
 
 export const runtime = 'nodejs'
@@ -16,8 +16,8 @@ function toRoundedInt(value: unknown): number | null {
 }
 
 export async function GET(req: Request) {
-	const { userId } = await auth()
-	if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+	const userId = await getUserId(req)
+	if (!userId) return unauthorized()
 
 	const { searchParams } = new URL(req.url)
 	const path = searchParams.get('path')
@@ -55,8 +55,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-	const { userId } = await auth()
-	if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+	const userId = await getUserId(req)
+	if (!userId) return unauthorized()
 
 	const body = (await req.json()) as {
 		path: string
@@ -103,8 +103,8 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-	const { userId } = await auth()
-	if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+	const userId = await getUserId(req)
+	if (!userId) return unauthorized()
 
 	const { searchParams } = new URL(req.url)
 	const id = searchParams.get('id')
@@ -127,8 +127,8 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-	const { userId } = await auth()
-	if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+	const userId = await getUserId(req)
+	if (!userId) return unauthorized()
 
 	const { searchParams } = new URL(req.url)
 	const id = searchParams.get('id')

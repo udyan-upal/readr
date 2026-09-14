@@ -21,6 +21,7 @@ function probeApp() {
 		BETTER_AUTH_SECRET: 'test-secret-that-is-at-least-32-chars!',
 		BETTER_AUTH_URL: TEST_BASE_URL,
 		JWT_ENCRYPTION_KEY: Buffer.from(TEST_JWT_KEY).toString('base64'),
+		TURSO_DATABASE_URL: ':memory:',
 	})
 	const mw = new BearerMiddleware(new JweTokenService(TEST_JWT_KEY), config)
 	return new Hono()

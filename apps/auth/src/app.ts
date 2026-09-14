@@ -19,8 +19,8 @@ export class Application {
 		private readonly telemetry: Telemetry,
 	) {}
 
-	start(): void {
-		this.container.get<Migrator>(TOKENS.Migrator).run()
+	async start(): Promise<void> {
+		await this.container.get<Migrator>(TOKENS.Migrator).run()
 		this.container.get<HttpServer>(TOKENS.HttpServer).start()
 		process.on('SIGINT', () => this.stop())
 		process.on('SIGTERM', () => this.stop())

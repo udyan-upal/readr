@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 const EMAIL = 'user@example.com'
 const PASSWORD = 'sup3rsecret-password'
 
-function signUp(app: ReturnType<typeof createTestApp>['app']) {
+function signUp(app: Awaited<ReturnType<typeof createTestApp>>['app']) {
 	return app.request('/api/auth/sign-up/email', {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
@@ -12,7 +12,7 @@ function signUp(app: ReturnType<typeof createTestApp>['app']) {
 	})
 }
 
-async function signIn(app: ReturnType<typeof createTestApp>['app']) {
+async function signIn(app: Awaited<ReturnType<typeof createTestApp>>['app']) {
 	const res = await app.request('/api/auth/sign-in/email', {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
@@ -22,7 +22,7 @@ async function signIn(app: ReturnType<typeof createTestApp>['app']) {
 	return res
 }
 
-async function mintJwe(app: ReturnType<typeof createTestApp>['app']) {
+async function mintJwe(app: Awaited<ReturnType<typeof createTestApp>>['app']) {
 	await signUp(app)
 	const signInRes = await signIn(app)
 	const sessionToken = signInRes.headers.get('set-auth-token')
@@ -36,8 +36,25 @@ async function mintJwe(app: ReturnType<typeof createTestApp>['app']) {
 }
 
 describe('stateless bearer flow', () => {
+	it('exposes the token headers to cross-origin browser JS', async () => {
+		const { app } = await createTestApp()
+
+		const res = await app.request('/api/auth/sign-up/email', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json', origin: 'http://localhost:3001' },
+			body: JSON.stringify({ email: EMAIL, name: 'Test User', password: PASSWORD }),
+		})
+
+		// Without Access-Control-Expose-Headers, fetch() cannot read set-auth-token
+		// and sign-in silently yields no token in the browser.
+		const exposed = res.headers.get('access-control-expose-headers') ?? ''
+		expect(exposed.toLowerCase()).toContain('set-auth-token')
+		expect(exposed.toLowerCase()).toContain('set-auth-jwt')
+		expect(res.headers.get('access-control-allow-origin')).toBe('http://localhost:3001')
+	})
+
 	it('rejects duplicate email sign-up', async () => {
-		const { app } = createTestApp()
+		const { app } = await createTestApp()
 
 		const first = await signUp(app)
 		expect(first.status).toBeLessThan(300)
@@ -46,7 +63,7 @@ describe('stateless bearer flow', () => {
 	})
 
 	it('rejects wrong password', async () => {
-		const { app } = createTestApp()
+		const { app } = await createTestApp()
 		await signUp(app)
 
 		const res = await app.request('/api/auth/sign-in/email', {
@@ -58,7 +75,7 @@ describe('stateless bearer flow', () => {
 	})
 
 	it('never sets cookies on auth responses but exposes the session token header', async () => {
-		const { app } = createTestApp()
+		const { app } = await createTestApp()
 
 		const up = await signUp(app)
 		expect(up.headers.getSetCookie()).toEqual([])
@@ -71,7 +88,7 @@ describe('stateless bearer flow', () => {
 	})
 
 	it('mints a JWE via /api/auth/token that authenticates /api/me', async () => {
-		const { app } = createTestApp()
+		const { app } = await createTestApp()
 		const token = await mintJwe(app)
 
 		expect(token.split('.')).toHaveLength(5)
@@ -85,7 +102,7 @@ describe('stateless bearer flow', () => {
 	})
 
 	it('rejects /api/me without, malformed, or tampered bearer tokens', async () => {
-		const { app } = createTestApp()
+		const { app } = await createTestApp()
 		const token = await mintJwe(app)
 		const parts = token.split('.')
 		const ciphertext = parts[2] ?? ''
@@ -103,7 +120,7 @@ describe('stateless bearer flow', () => {
 	})
 
 	it('sign-out kills the session token but not the JWE (no server-side revocation)', async () => {
-		const { app } = createTestApp()
+		const { app } = await createTestApp()
 		await signUp(app)
 		const signInRes = await signIn(app)
 		const sessionToken = signInRes.headers.get('set-auth-token')

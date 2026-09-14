@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 const EMAIL = 'user@example.com'
 const PASSWORD = 'sup3rsecret-password'
 
-async function mintJweFromEndpoint(app: ReturnType<typeof createTestApp>['app']) {
+async function mintJweFromEndpoint(app: Awaited<ReturnType<typeof createTestApp>>['app']) {
 	await app.request('/api/auth/sign-up/email', {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
@@ -26,7 +26,7 @@ async function mintJweFromEndpoint(app: ReturnType<typeof createTestApp>['app'])
 
 describe('jwe tokens', () => {
 	it('disables the jwks endpoint (no public keys in JWE mode)', async () => {
-		const { app } = createTestApp()
+		const { app } = await createTestApp()
 
 		const res = await app.request('/api/auth/jwks')
 
@@ -34,7 +34,7 @@ describe('jwe tokens', () => {
 	})
 
 	it('issues an encrypted token decryptable only with the shared key', async () => {
-		const { app } = createTestApp()
+		const { app } = await createTestApp()
 		const token = await mintJweFromEndpoint(app)
 
 		const { payload } = await jwtDecrypt(token, TEST_JWT_KEY, {
@@ -52,7 +52,7 @@ describe('jwe tokens', () => {
 	})
 
 	it('rejects tokens minted with a different key', async () => {
-		const { app } = createTestApp()
+		const { app } = await createTestApp()
 		const token = await mintJweFromEndpoint(app)
 
 		const wrongKey = new Uint8Array(32).fill(9)
@@ -60,7 +60,7 @@ describe('jwe tokens', () => {
 	})
 
 	it('rejects expired tokens even though they decrypt cleanly', async () => {
-		const { app } = createTestApp()
+		const { app } = await createTestApp()
 		const expired = await new EncryptJWT({ sub: 'user-id', email: EMAIL })
 			.setProtectedHeader({ alg: 'dir', enc: 'A256GCM' })
 			.setIssuer(TEST_BASE_URL)

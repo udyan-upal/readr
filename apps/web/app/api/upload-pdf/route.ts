@@ -1,13 +1,11 @@
-import { auth } from '@clerk/nextjs/server'
+import { getUserId, unauthorized } from '@/lib/require-user'
 import { createAdminClient } from '@/utils/supabase/admin'
 
 export const runtime = 'nodejs'
 
 export async function POST(req: Request) {
-	const { userId } = await auth()
-	if (!userId) {
-		return Response.json({ error: 'Unauthorized' }, { status: 401 })
-	}
+	const userId = await getUserId(req)
+	if (!userId) return unauthorized()
 
 	const formData = await req.formData()
 	const file = formData.get('file') as File | null

@@ -29,6 +29,7 @@ export class AuthService implements AuthServiceContract {
 			database: drizzleAdapter(database.db, { provider: 'sqlite', schema }),
 			secret: config.betterAuthSecret,
 			baseURL: config.betterAuthUrl,
+			trustedOrigins: [config.webOrigin],
 			emailAndPassword: { enabled: true },
 			logger: {
 				// better-auth's default level is 'warn', so only warn/error reach log()

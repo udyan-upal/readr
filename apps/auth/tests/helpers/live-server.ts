@@ -33,7 +33,7 @@ function getFreePort(): Promise<number> {
 /**
  * Spawns the real application (`src/index.ts`) as a subprocess — the only way to
  * exercise the signal handlers, since `Application.stop()` ends in `process.exit(0)`.
- * The absolute DATABASE_PATH keeps the subprocess away from the repo's real database.
+ * The absolute file: TURSO_DATABASE_URL keeps the subprocess away from any real database.
  */
 export async function startLiveServer(): Promise<LiveServer> {
 	const port = await getFreePort()
@@ -46,7 +46,7 @@ export async function startLiveServer(): Promise<LiveServer> {
 			BETTER_AUTH_SECRET: 'live-secret-that-is-at-least-32-chars!',
 			BETTER_AUTH_URL: baseUrl,
 			JWT_ENCRYPTION_KEY: Buffer.from(TEST_JWT_KEY).toString('base64'),
-			DATABASE_PATH: join(databaseDir, 'auth.db'),
+			TURSO_DATABASE_URL: `file:${join(databaseDir, 'auth.db')}`,
 			PORT: String(port),
 		},
 		stdio: ['ignore', 'pipe', 'pipe'],

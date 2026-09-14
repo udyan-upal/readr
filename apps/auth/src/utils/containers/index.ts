@@ -38,7 +38,10 @@ export class AuthContainer extends Container {
 			})
 			.inSingletonScope()
 		this.bind(TOKENS.Database)
-			.toDynamicValue((ctx) => new Database(ctx.get<EnvConfig>(TOKENS.Config).databasePath))
+			.toDynamicValue((ctx) => {
+				const c = ctx.get<EnvConfig>(TOKENS.Config)
+				return new Database(c.databaseUrl, c.databaseAuthToken)
+			})
 			.inSingletonScope()
 		this.bind(TOKENS.TokenService)
 			.toDynamicValue(

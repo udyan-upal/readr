@@ -12,4 +12,4 @@ const telemetry: Telemetry =
 		: NOOP_TELEMETRY
 
 const { Application } = await import('@/app')
-Application.create(config, telemetry).start()
+await Application.create(config, telemetry).start()

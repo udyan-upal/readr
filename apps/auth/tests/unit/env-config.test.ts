@@ -1,26 +1,22 @@
-import { mkdtempSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { parseEnvConfig } from '@/config/env.config'
-
-const APP_ROOT = fileURLToPath(new URL('../../', import.meta.url))
 
 function base(): Record<string, string | undefined> {
 	return {
 		BETTER_AUTH_SECRET: 'test-secret-that-is-at-least-32-chars!',
 		BETTER_AUTH_URL: 'http://auth.test',
 		JWT_ENCRYPTION_KEY: Buffer.from(new Uint8Array(32).map((_, i) => i + 1)).toString('base64'),
+		TURSO_DATABASE_URL: ':memory:',
 	}
 }
 
 describe('env config', () => {
-	it('applies defaults for PORT and DATABASE_PATH', () => {
+	it('applies the PORT default and passes the database url through', () => {
 		const config = parseEnvConfig(base())
 
 		expect(config.port).toBe(3000)
-		expect(config.databasePath).toBe(resolve(APP_ROOT, 'data/auth.db'))
+		expect(config.databaseUrl).toBe(':memory:')
+		expect(config.databaseAuthToken).toBeUndefined()
 	})
 
 	it('rejects a missing or too-short BETTER_AUTH_SECRET', () => {
@@ -59,13 +55,31 @@ describe('env config', () => {
 		expect(parseEnvConfig({ ...base(), PORT: '4000' }).port).toBe(4000)
 	})
 
-	it('resolves DATABASE_PATH relative, absolute, and :memory: variants', () => {
-		expect(parseEnvConfig({ ...base(), DATABASE_PATH: ':memory:' }).databasePath).toBe(':memory:')
-		expect(parseEnvConfig({ ...base(), DATABASE_PATH: './data/x.db' }).databasePath).toBe(
-			resolve(APP_ROOT, 'data/x.db'),
+	it('rejects a missing or unsupported TURSO_DATABASE_URL', () => {
+		expect(() => parseEnvConfig({ ...base(), TURSO_DATABASE_URL: undefined })).toThrow(
+			/TURSO_DATABASE_URL is required/,
 		)
-		const absolute = join(mkdtempSync(join(tmpdir(), 'auth-env-')), 'auth.db')
-		expect(parseEnvConfig({ ...base(), DATABASE_PATH: absolute }).databasePath).toBe(absolute)
+		expect(() => parseEnvConfig({ ...base(), TURSO_DATABASE_URL: '' })).toThrow(
+			/TURSO_DATABASE_URL is required/,
+		)
+		expect(() => parseEnvConfig({ ...base(), TURSO_DATABASE_URL: './data/auth.db' })).toThrow(
+			/must use libsql:, https:, http: or file:/,
+		)
+	})
+
+	it('requires TURSO_AUTH_TOKEN for remote urls only', () => {
+		const remote = { ...base(), TURSO_DATABASE_URL: 'libsql://db-org.turso.io' }
+		expect(() => parseEnvConfig(remote)).toThrow(/TURSO_AUTH_TOKEN is required/)
+		expect(() => parseEnvConfig({ ...remote, TURSO_AUTH_TOKEN: '  ' })).toThrow(
+			/TURSO_AUTH_TOKEN is required/,
+		)
+		expect(parseEnvConfig({ ...remote, TURSO_AUTH_TOKEN: 'ey.token' }).databaseAuthToken).toBe(
+			'ey.token',
+		)
+
+		const local = parseEnvConfig({ ...base(), TURSO_DATABASE_URL: 'file:./data/auth.db' })
+		expect(local.databaseUrl).toBe('file:./data/auth.db')
+		expect(local.databaseAuthToken).toBeUndefined()
 	})
 
 	it('disables telemetry by default and applies OTEL_SERVICE_NAME default', () => {

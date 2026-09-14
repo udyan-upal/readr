@@ -1,13 +1,16 @@
-import { isAbsolute, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
-
-const APP_ROOT = fileURLToPath(new URL('../../', import.meta.url))
 
 const SECRET_MESSAGE = 'BETTER_AUTH_SECRET is required and must be at least 32 characters'
 const URL_REQUIRED_MESSAGE = 'BETTER_AUTH_URL is required (e.g. http://localhost:3000)'
 const KEY_REQUIRED_MESSAGE =
 	'JWT_ENCRYPTION_KEY is required (generate with: openssl rand -base64 32)'
+const TURSO_URL_REQUIRED_MESSAGE =
+	'TURSO_DATABASE_URL is required (e.g. libsql://<db>-<org>.turso.io; get it with: turso db show <db> --url)'
+const TURSO_URL_SCHEME_MESSAGE =
+	'TURSO_DATABASE_URL must use libsql:, https:, http: or file:, or be :memory:'
+const WEB_ORIGIN_MESSAGE = 'WEB_ORIGIN must be a valid http(s) URL, e.g. http://localhost:3001'
+const TURSO_TOKEN_MESSAGE =
+	'TURSO_AUTH_TOKEN is required for remote databases (create one with: turso db tokens create <db>)'
 const OTLP_ENDPOINT_MESSAGE =
 	'OTEL_EXPORTER_OTLP_ENDPOINT must be a valid http(s) URL, e.g. http://localhost:4318'
 const LOG_LEVEL_MESSAGE = 'LOG_LEVEL must be one of: debug, info, warn, error'
@@ -24,8 +27,12 @@ export const envSchema = z
 		BETTER_AUTH_SECRET: z.string({ error: SECRET_MESSAGE }).min(32, SECRET_MESSAGE),
 		BETTER_AUTH_URL: z.string({ error: URL_REQUIRED_MESSAGE }),
 		JWT_ENCRYPTION_KEY: z.string({ error: KEY_REQUIRED_MESSAGE }),
+		TURSO_DATABASE_URL: z
+			.string({ error: TURSO_URL_REQUIRED_MESSAGE })
+			.min(1, TURSO_URL_REQUIRED_MESSAGE),
+		TURSO_AUTH_TOKEN: z.string().optional(),
+		WEB_ORIGIN: z.string().optional(),
 		PORT: z.string().optional(),
-		DATABASE_PATH: z.string().optional(),
 		OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional(),
 		OTEL_SERVICE_NAME: z.string().optional(),
 		OTEL_SDK_DISABLED: z.string().optional(),
@@ -51,6 +58,22 @@ export const envSchema = z
 			})
 		}
 
+		// The browser origin allowed to call this service. CORS must also expose
+		// the token headers, or fetch() cannot read them (see http-app wiring).
+		const webOrigin = env.WEB_ORIGIN?.trim() || 'http://localhost:3001'
+		const parsedOrigin = URL.parse(webOrigin)
+		if (
+			!parsedOrigin ||
+			(parsedOrigin.protocol !== 'http:' && parsedOrigin.protocol !== 'https:')
+		) {
+			ctx.addIssue({
+				code: 'custom',
+				message: `${WEB_ORIGIN_MESSAGE}, got: ${webOrigin}`,
+				input: webOrigin,
+				path: ['WEB_ORIGIN'],
+			})
+		}
+
 		const port = Number(env.PORT ?? 3000)
 		if (!Number.isInteger(port) || port <= 0) {
 			ctx.addIssue({
@@ -61,14 +84,29 @@ export const envSchema = z
 			})
 		}
 
-		const rawPath = env.DATABASE_PATH
-		const databasePath = !rawPath
-			? resolve(APP_ROOT, 'data/auth.db')
-			: rawPath === ':memory:'
-				? ':memory:'
-				: isAbsolute(rawPath)
-					? rawPath
-					: resolve(APP_ROOT, rawPath)
+		// ':memory:' is libSQL's in-process database (tests); every other form
+		// carries a scheme. libsql:/https: are remote, so they need a token —
+		// http: (local sqld) and file: do not.
+		const databaseUrl = env.TURSO_DATABASE_URL
+		const databaseAuthToken = env.TURSO_AUTH_TOKEN?.trim() || undefined
+		if (databaseUrl !== ':memory:') {
+			const scheme = URL.parse(databaseUrl)?.protocol
+			if (!scheme || !['libsql:', 'https:', 'http:', 'file:'].includes(scheme)) {
+				ctx.addIssue({
+					code: 'custom',
+					message: `${TURSO_URL_SCHEME_MESSAGE}, got: ${databaseUrl}`,
+					input: databaseUrl,
+					path: ['TURSO_DATABASE_URL'],
+				})
+			} else if ((scheme === 'libsql:' || scheme === 'https:') && !databaseAuthToken) {
+				ctx.addIssue({
+					code: 'custom',
+					message: TURSO_TOKEN_MESSAGE,
+					input: databaseAuthToken,
+					path: ['TURSO_AUTH_TOKEN'],
+				})
+			}
+		}
 
 		const otlpEndpoint = env.OTEL_EXPORTER_OTLP_ENDPOINT?.trim() || undefined
 		if (otlpEndpoint) {
@@ -100,9 +138,11 @@ export const envSchema = z
 		return {
 			betterAuthSecret: env.BETTER_AUTH_SECRET,
 			betterAuthUrl: env.BETTER_AUTH_URL,
+			webOrigin,
 			jwtEncryptionKey,
 			port,
-			databasePath,
+			databaseUrl,
+			databaseAuthToken,
 			otlpEndpoint,
 			otelServiceName: env.OTEL_SERVICE_NAME?.trim() || 'auth',
 			otelSdkDisabled: env.OTEL_SDK_DISABLED === 'true',

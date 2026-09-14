@@ -2,32 +2,32 @@ import { describe, expect, it } from 'vitest'
 import { Database } from '@/db/database'
 import { Migrator } from '@/db/migrator'
 
-function tableNames(database: Database) {
-	const rows = database.sqlite
-		.prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
-		.all() as { name: string }[]
-	return rows.map((row) => row.name)
+async function tableNames(database: Database) {
+	const result = await database.client.execute(
+		"SELECT name FROM sqlite_master WHERE type = 'table'",
+	)
+	return result.rows.map((row) => row.name as string)
 }
 
 describe('migrator', () => {
-	it('creates the auth tables', () => {
+	it('creates the auth tables', async () => {
 		const database = new Database(':memory:')
 
-		new Migrator(database).run()
+		await new Migrator(database).run()
 
-		const tables = tableNames(database)
+		const tables = await tableNames(database)
 		for (const table of ['user', 'session', 'account', 'verification', 'jwks']) {
 			expect(tables).toContain(table)
 		}
-		const count = database.sqlite.prepare('SELECT count(*) AS n FROM user').get() as { n: number }
-		expect(count.n).toBe(0)
+		const count = await database.client.execute('SELECT count(*) AS n FROM user')
+		expect(count.rows[0]?.n).toBe(0)
 	})
 
-	it('runs idempotently', () => {
+	it('runs idempotently', async () => {
 		const database = new Database(':memory:')
 		const migrator = new Migrator(database)
 
-		migrator.run()
-		expect(() => migrator.run()).not.toThrow()
+		await migrator.run()
+		await expect(migrator.run()).resolves.toBeUndefined()
 	})
 })

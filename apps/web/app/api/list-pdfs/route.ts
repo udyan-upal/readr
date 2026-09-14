@@ -1,11 +1,11 @@
-import { auth } from '@clerk/nextjs/server'
+import { getUserId, unauthorized } from '@/lib/require-user'
 import { createAdminClient } from '@/utils/supabase/admin'
 
 export const runtime = 'nodejs'
 
-export async function GET() {
-	const { userId } = await auth()
-	if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+export async function GET(req: Request) {
+	const userId = await getUserId(req)
+	if (!userId) return unauthorized()
 
 	const supabase = createAdminClient()
 

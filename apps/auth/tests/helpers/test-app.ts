@@ -14,24 +14,24 @@ const TEST_SECRET = 'test-secret-that-is-at-least-32-chars!'
 // Fixed 32-byte key so tests can mint/decrypt tokens directly with jose.
 export const TEST_JWT_KEY = new Uint8Array(32).map((_, i) => i + 1)
 
-export function createTestApp() {
+export async function createTestApp() {
 	const config = parseEnvConfig({
 		BETTER_AUTH_SECRET: TEST_SECRET,
 		BETTER_AUTH_URL: TEST_BASE_URL,
 		JWT_ENCRYPTION_KEY: Buffer.from(TEST_JWT_KEY).toString('base64'),
-		DATABASE_PATH: ':memory:',
+		TURSO_DATABASE_URL: ':memory:',
 		PORT: '3000',
 		// Expected-warn e2e cases (wrong password, etc.) otherwise print via the
 		// better-auth -> pino bridge.
 		LOG_LEVEL: 'error',
 	})
 	const container = new AuthContainer(config)
-	container.get<Migrator>(TOKENS.Migrator).run()
+	await container.get<Migrator>(TOKENS.Migrator).run()
 
 	const app = container.get<HttpApp>(TOKENS.HttpApp).hono
 	const auth = container.get<AuthService>(TOKENS.AuthService)
 	const jwe: TokenService = container.get<JweTokenService>(TOKENS.TokenService)
-	const sqlite = container.get<Database>(TOKENS.Database).sqlite
+	const client = container.get<Database>(TOKENS.Database).client
 
-	return { app, auth, jwe, baseUrl: TEST_BASE_URL, sqlite }
+	return { app, auth, jwe, baseUrl: TEST_BASE_URL, client }
 }

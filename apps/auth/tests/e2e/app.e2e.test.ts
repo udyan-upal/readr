@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 describe('app', () => {
 	it('serves the health endpoint', async () => {
-		const { app } = createTestApp()
+		const { app } = await createTestApp()
 
 		const res = await app.request('/health')
 

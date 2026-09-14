@@ -36,7 +36,7 @@
 		"@boilerplate/logger": "workspace:*",
 		"@boilerplate/telemetry": "workspace:*",
 		"better-auth": "1.7.2",
-		"better-sqlite3": "13.0.3",
+		"@libsql/client": "0.18.0",
 		"drizzle-orm": "0.45.2",
 		"hono": "4.13.5",
 		"inversify": "8.2.3",
@@ -46,7 +46,6 @@
 	},
 	"devDependencies": {
 		"@boilerplate/tsconfig": "workspace:*",
-		"@types/better-sqlite3": "9.6.0",
 		"drizzle-kit": "0.31.10",
 		"rimraf": "catalog:",
 		"vitest": "4.1.11"

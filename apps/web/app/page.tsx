@@ -1,15 +1,18 @@
 'use client'
 
-import { SignInButton, UserButton, useUser } from '@clerk/nextjs'
 import Image from 'next/image'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { FaNotesMedical } from 'react-icons/fa'
+import { AuthPanel } from '@/components/AuthPanel'
 import NotesPanel from '@/components/NotesPanel'
 import PdfOutline from '@/components/PdfOutline'
 import PdfUploader from '@/components/PdfUploader'
 import PdfViewer from '@/components/PdfViewer'
 import PlayerControls from '@/components/PlayerControls'
+import { UserMenu } from '@/components/UserMenu'
+import { useAuthUser } from '@/hooks/useAuthUser'
 import { useTtsPlayer } from '@/hooks/useTtsPlayer'
+import { apiFetch } from '@/lib/api-fetch'
 import { DEFAULT_VOICE } from '@/lib/voices'
 import type { OutlineItem, PageText, PdfNote, Word } from '@/types'
 
@@ -70,7 +73,7 @@ async function readApiError(res: Response, fallback: string): Promise<string> {
 }
 
 export default function Home() {
-	const { isLoaded, isSignedIn } = useUser()
+	const { user, isLoaded, isSignedIn, refresh, signOut } = useAuthUser()
 	const [file, setFile] = useState<File | null>(null)
 	const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle')
 	const [pageData, setPageData] = useState<PageText | null>(null)
@@ -145,7 +148,7 @@ export default function Home() {
 		const path = currentPdfPathRef.current
 		const name = currentPdfNameRef.current
 		if (!path || !name) return
-		fetch('/api/session', {
+		apiFetch('/api/session', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ path, name, page, wordIndex, voice: v, rate: r }),
@@ -199,7 +202,7 @@ export default function Home() {
 	}, [tts.isPlaying, tts.endedCount, isSignedIn, currentPage, voice, rate, saveSession])
 
 	const refreshSavedList = useCallback(() => {
-		fetch('/api/list-pdfs')
+		apiFetch('/api/list-pdfs')
 			.then((r) => r.json())
 			.then((d) => {
 				if (Array.isArray(d.files)) setSavedPdfs(d.files)
@@ -210,7 +213,7 @@ export default function Home() {
 	useEffect(() => {
 		if (!isSignedIn) return
 		setLoadingSaved(true)
-		fetch('/api/list-pdfs')
+		apiFetch('/api/list-pdfs')
 			.then((r) => r.json())
 			.then((d) => setSavedPdfs(Array.isArray(d.files) ? d.files : []))
 			.catch(() => {})
@@ -308,7 +311,7 @@ export default function Home() {
 				setUploadStatus('uploading')
 				const fd = new FormData()
 				fd.append('file', f)
-				fetch('/api/upload-pdf', { method: 'POST', body: fd })
+				apiFetch('/api/upload-pdf', { method: 'POST', body: fd })
 					.then((r) => r.json())
 					.then((d: { path?: string }) => {
 						if (d.path) {
@@ -519,7 +522,7 @@ export default function Home() {
 	}, [tts, onPlay, handlePageChange, numPages, currentPage])
 
 	const fetchNotesForPage = useCallback(async (path: string, page: number) => {
-		const res = await fetch(`/api/notes?path=${encodeURIComponent(path)}&page=${page}`)
+		const res = await apiFetch(`/api/notes?path=${encodeURIComponent(path)}&page=${page}`)
 		if (!res.ok) throw new Error('Failed to load notes')
 		const data = (await res.json()) as { notes?: RawPdfNote[] }
 		const normalized = Array.isArray(data.notes) ? data.notes.map(normalizeNote) : []
@@ -527,7 +530,7 @@ export default function Home() {
 	}, [])
 
 	const fetchAllNotes = useCallback(async (path: string) => {
-		const res = await fetch(`/api/notes?path=${encodeURIComponent(path)}`)
+		const res = await apiFetch(`/api/notes?path=${encodeURIComponent(path)}`)
 		if (!res.ok) return
 		const data = (await res.json()) as { notes?: RawPdfNote[] }
 		const normalized = Array.isArray(data.notes) ? data.notes.map(normalizeNote) : []
@@ -553,7 +556,7 @@ export default function Home() {
 	const handleAddNote = useCallback(
 		async (lineY: number, wordIndex: number, text: string) => {
 			if (!currentPdfPath) throw new Error('Missing PDF path')
-			const res = await fetch('/api/notes', {
+			const res = await apiFetch('/api/notes', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -586,7 +589,7 @@ export default function Home() {
 
 	const handleUpdateNote = useCallback(
 		async (noteId: string, text: string) => {
-			const res = await fetch(`/api/notes?id=${encodeURIComponent(noteId)}`, {
+			const res = await apiFetch(`/api/notes?id=${encodeURIComponent(noteId)}`, {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ noteText: text }),
@@ -613,7 +616,7 @@ export default function Home() {
 
 	const handleDeleteNote = useCallback(
 		async (noteId: string) => {
-			const res = await fetch(`/api/notes?id=${encodeURIComponent(noteId)}`, {
+			const res = await apiFetch(`/api/notes?id=${encodeURIComponent(noteId)}`, {
 				method: 'DELETE',
 			})
 			if (!res.ok) throw new Error(await readApiError(res, 'Failed to delete note'))
@@ -652,7 +655,7 @@ export default function Home() {
 		)
 	}
 
-	if (!isSignedIn) {
+	if (!user) {
 		return (
 			<main
 				style={{
@@ -701,32 +704,7 @@ export default function Home() {
 							Microsoft Edge neural voices
 						</p>
 					</div>
-					<SignInButton mode="modal">
-						<button
-							style={{
-								width: '100%',
-								padding: '11px 0',
-								borderRadius: 10,
-								border: 'none',
-								background: 'var(--accent)',
-								color: '#fff',
-								fontWeight: 600,
-								fontSize: 15,
-								cursor: 'pointer',
-								boxShadow: '0 4px 14px rgba(91,94,255,0.35)',
-								fontFamily: 'inherit',
-								transition: 'background 0.15s',
-							}}
-							onMouseEnter={(e) => {
-								;(e.currentTarget as HTMLButtonElement).style.background = 'var(--accent-h)'
-							}}
-							onMouseLeave={(e) => {
-								;(e.currentTarget as HTMLButtonElement).style.background = 'var(--accent)'
-							}}
-						>
-							Sign in to get started
-						</button>
-					</SignInButton>
+					<AuthPanel onSignedIn={refresh} />
 					<p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>
 						Upload &amp; sync across sessions after sign-in
 					</p>
@@ -788,7 +766,7 @@ export default function Home() {
 							Readr
 						</span>
 					</div>
-					<UserButton />
+					<UserMenu user={user} onSignOut={signOut} />
 				</header>
 
 				{/* Hero + upload */}
@@ -1142,7 +1120,7 @@ export default function Home() {
 					>
 						New PDF
 					</button>
-					<UserButton />
+					<UserMenu user={user} onSignOut={signOut} />
 				</div>
 			</header>
 
