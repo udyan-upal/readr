@@ -8,7 +8,12 @@
       "Bash(time curl *)",
       "Bash(python3 -c \"import json; d=json.load\\(open\\('/tmp/tts.json'\\)\\); print\\('audio_b64_len:', len\\(d.get\\('audio',''\\)\\), 'boundaries:', len\\(d.get\\('boundaries',[]\\)\\), 'first:', d.get\\('boundaries',[]\\)[:3], 'err:', d.get\\('error'\\)\\)\")",
       "Bash(npx tsc *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(npx wrangler *)"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "better-auth"
+  ]
 }
