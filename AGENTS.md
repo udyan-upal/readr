@@ -4,6 +4,14 @@ This repository is a pnpm workspace containing the Readr web app, its Chrome ext
 and shared packages. The extension lives in `apps/extension/` and has its own
 `AGENTS.md` with more specific guidance.
 
+## Working agreements
+
+- Never commit, amend, or push unless the user explicitly asks for it in the current
+  request. Finish work by leaving changes in the working tree for review.
+- When asked to commit, follow Conventional Commits; commit bodies must wrap at 100
+  characters (commitlint enforces this).
+
+
 ## Repository layout
 
 | Path | Project | Tooling |
