@@ -50,13 +50,13 @@ export default function PdfUploader({ onFile }: Props) {
 				onClick={() => inputRef.current?.click()}
 				className="group cursor-pointer"
 				style={{
-					borderRadius: 16,
-					border: `2px dashed ${dragging ? 'var(--accent)' : 'var(--border)'}`,
-					background: dragging ? 'var(--accent-s)' : 'var(--surface)',
-					padding: '48px 32px',
+					borderRadius: 24,
+					border: `1.5px dashed ${dragging ? 'var(--accent)' : 'var(--border)'}`,
+					background: dragging ? 'var(--soft)' : 'var(--surface)',
+					padding: '52px 32px',
 					textAlign: 'center',
 					transition: 'border-color 0.2s, background 0.2s, box-shadow 0.2s',
-					boxShadow: dragging ? '0 0 0 4px var(--accent-s)' : 'var(--shadow-sm)',
+					boxShadow: dragging ? '0 0 0 4px var(--soft)' : 'var(--shadow-sm)',
 				}}
 				onMouseEnter={(e) => {
 					if (!dragging) (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--accent)'
@@ -71,15 +71,15 @@ export default function PdfUploader({ onFile }: Props) {
 					style={{
 						width: 56,
 						height: 56,
-						borderRadius: 14,
+						borderRadius: 18,
 						background: dragging ? 'var(--accent)' : 'var(--accent-s)',
 						transition: 'background 0.2s',
 					}}
 				>
-					<svg width="26" height="26" fill="none" viewBox="0 0 24 24">
+					<svg width="26" height="26" fill="none" viewBox="0 0 24 24" aria-hidden="true">
 						<path
 							d="M12 16V8m0 0-3 3m3-3 3 3"
-							stroke={dragging ? '#fff' : 'var(--accent)'}
+							stroke={dragging ? 'var(--on-accent)' : 'var(--accent)'}
 							strokeWidth="2"
 							strokeLinecap="round"
 							strokeLinejoin="round"
@@ -90,17 +90,27 @@ export default function PdfUploader({ onFile }: Props) {
 							width="18"
 							height="18"
 							rx="4"
-							stroke={dragging ? '#fff' : 'var(--accent)'}
+							stroke={dragging ? 'var(--on-accent)' : 'var(--accent)'}
 							strokeWidth="1.5"
 							strokeDasharray="3 2"
 						/>
 					</svg>
 				</div>
 
-				<p style={{ fontWeight: 600, fontSize: 15, color: 'var(--text-1)', marginBottom: 6 }}>
-					{dragging ? 'Release to open' : 'Drop a PDF here, or click to browse'}
+				<p
+					style={{
+						fontFamily: 'var(--font-display)',
+						fontWeight: 400,
+						fontSize: 20,
+						color: 'var(--text-1)',
+						marginBottom: 7,
+					}}
+				>
+					{dragging ? 'Release to open' : 'Drop a PDF here'}
 				</p>
-				<p style={{ fontSize: 13, color: 'var(--text-3)' }}>PDF only · max 20 MB</p>
+				<p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 2 }}>
+					{dragging ? 'PDF only · max 20 MB' : 'or click to browse · PDF only · max 20 MB'}
+				</p>
 
 				<input
 					ref={inputRef}

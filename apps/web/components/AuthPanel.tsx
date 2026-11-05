@@ -5,22 +5,24 @@ import { signIn } from '@/lib/auth-client'
 
 const inputStyle: React.CSSProperties = {
 	width: '100%',
-	padding: '10px 12px',
-	borderRadius: 8,
+	padding: '10px 14px',
+	borderRadius: 14,
 	border: '1px solid var(--border)',
 	background: 'var(--surface)',
 	color: 'var(--text-1)',
 	fontSize: 14,
 	fontFamily: 'inherit',
 	outline: 'none',
+	transition: 'border-color 0.15s, box-shadow 0.15s',
 }
 
 const labelStyle: React.CSSProperties = {
 	display: 'block',
 	fontSize: 12,
 	fontWeight: 600,
+	letterSpacing: '0.01em',
 	color: 'var(--text-2)',
-	marginBottom: 6,
+	marginBottom: 7,
 }
 
 /** Username + password sign-in for the single admin user. */
@@ -46,7 +48,7 @@ export function AuthPanel({ onSignedIn }: { onSignedIn: () => void }) {
 	}
 
 	return (
-		<form onSubmit={submit} style={{ width: '100%', display: 'grid', gap: 14 }}>
+		<form onSubmit={submit} style={{ width: '100%', display: 'grid', gap: 16 }}>
 			<div>
 				<label htmlFor="auth-username" style={labelStyle}>
 					Username
@@ -73,7 +75,15 @@ export function AuthPanel({ onSignedIn }: { onSignedIn: () => void }) {
 						onChange={(e) => setPassword(e.target.value)}
 						required
 						autoComplete="current-password"
-						style={{ ...inputStyle, paddingRight: 40 }}
+						style={{ ...inputStyle, paddingRight: 44 }}
+						onFocus={(e) => {
+							e.currentTarget.style.borderColor = 'var(--accent)'
+							e.currentTarget.style.boxShadow = '0 0 0 3px var(--soft)'
+						}}
+						onBlur={(e) => {
+							e.currentTarget.style.borderColor = 'var(--border)'
+							e.currentTarget.style.boxShadow = 'none'
+						}}
 					/>
 					<button
 						type="button"
@@ -94,8 +104,8 @@ export function AuthPanel({ onSignedIn }: { onSignedIn: () => void }) {
 							border: 'none',
 							padding: 0,
 							cursor: 'pointer',
-							color: 'var(--text-2)',
-							borderRadius: 8,
+							color: 'var(--text-3)',
+							borderRadius: 12,
 						}}
 					>
 						<svg
@@ -134,20 +144,8 @@ export function AuthPanel({ onSignedIn }: { onSignedIn: () => void }) {
 			<button
 				type="submit"
 				disabled={busy}
-				style={{
-					width: '100%',
-					padding: '11px 0',
-					borderRadius: 10,
-					border: 'none',
-					background: 'var(--accent)',
-					color: '#fff',
-					fontWeight: 600,
-					fontSize: 15,
-					cursor: busy ? 'default' : 'pointer',
-					opacity: busy ? 0.7 : 1,
-					boxShadow: '0 4px 14px rgba(91,94,255,0.35)',
-					fontFamily: 'inherit',
-				}}
+				className="btn-primary"
+				style={{ width: '100%', padding: '12px 0', fontSize: 15, marginTop: 2 }}
 			>
 				{busy ? 'Working…' : 'Sign in'}
 			</button>

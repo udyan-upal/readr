@@ -477,28 +477,29 @@ export default function PdfViewer({
 
 	return (
 		<div className="flex flex-col h-full">
-			<div
-				className="flex items-center justify-between border-b px-4 py-2 text-sm"
-				style={{
-					borderColor: 'var(--border)',
-					background: 'var(--surface)',
-					color: 'var(--text-2)',
-				}}
-			>
+			<div className="reader-pagebar">
 				<button
 					type="button"
 					onClick={() => onPageChange(Math.max(1, currentPage - 1))}
 					disabled={currentPage <= 1}
-					className="px-3 py-1 rounded disabled:opacity-40"
-					style={{
-						background: 'var(--bg)',
-						color: 'var(--text-1)',
-						border: '1px solid var(--border)',
-					}}
+					className="btn-pill"
 				>
-					← Prev
+					<svg
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2.2"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						aria-hidden="true"
+					>
+						<path d="M19 12H5M11 18l-6-6 6-6" />
+					</svg>
+					Prev
 				</button>
-				<div className="flex items-center gap-2">
+				<div className="reader-page-count">
 					<span>Page</span>
 					<input
 						type="number"
@@ -509,28 +510,35 @@ export default function PdfViewer({
 							const n = Number(e.target.value)
 							if (n >= 1 && n <= numPages) onPageChange(n)
 						}}
-						className="w-16 px-2 py-1 rounded border bg-transparent text-center"
-						style={{ borderColor: 'var(--border)', color: 'var(--text-1)' }}
+						className="reader-page-input"
 					/>
-					<span>/ {numPages || '—'}</span>
+					<span className="reader-page-total">/ {numPages || '—'}</span>
 				</div>
 				<button
 					type="button"
 					onClick={() => onPageChange(Math.min(numPages, currentPage + 1))}
 					disabled={currentPage >= numPages}
-					className="px-3 py-1 rounded disabled:opacity-40"
-					style={{
-						background: 'var(--bg)',
-						color: 'var(--text-1)',
-						border: '1px solid var(--border)',
-					}}
+					className="btn-pill"
 				>
-					Next →
+					Next
+					<svg
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2.2"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						aria-hidden="true"
+					>
+						<path d="M5 12h14M13 6l6 6-6 6" />
+					</svg>
 				</button>
 			</div>
 
 			<div
-				className="flex-1 overflow-auto p-6 flex justify-center items-start"
+				className="reader-scroll-area flex-1 overflow-auto px-6 pt-6 flex justify-center items-start"
 				style={{ background: 'var(--bg)' }}
 			>
 				{loading && <div style={{ color: 'var(--text-3)' }}>Loading PDF…</div>}

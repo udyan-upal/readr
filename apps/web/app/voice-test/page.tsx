@@ -392,7 +392,7 @@ export default function VoiceTestPage() {
 											background: active
 												? 'linear-gradient(135deg, var(--accent), var(--accent-h))'
 												: 'transparent',
-											color: active ? '#fff' : 'var(--text-2)',
+											color: active ? 'var(--on-accent)' : 'var(--text-2)',
 											fontSize: 11,
 											fontWeight: active ? 800 : 500,
 											cursor: 'pointer',
@@ -424,7 +424,7 @@ export default function VoiceTestPage() {
 					style={{
 						padding: '10px 24px',
 						background: loading ? 'var(--accent-s)' : 'var(--accent)',
-						color: loading ? 'var(--accent)' : '#fff',
+						color: loading ? 'var(--accent)' : 'var(--on-accent)',
 						border: 'none',
 						borderRadius: 7,
 						fontSize: 13,

@@ -15,7 +15,7 @@ export function UserMenu({ user, onSignOut }: { user: AuthUser; onSignOut: () =>
 					height: 30,
 					borderRadius: '50%',
 					background: 'var(--accent)',
-					color: '#fff',
+					color: 'var(--on-accent)',
 					display: 'flex',
 					alignItems: 'center',
 					justifyContent: 'center',
@@ -26,20 +26,7 @@ export function UserMenu({ user, onSignOut }: { user: AuthUser; onSignOut: () =>
 			>
 				{initial}
 			</div>
-			<button
-				type="button"
-				onClick={onSignOut}
-				style={{
-					background: 'none',
-					border: '1px solid var(--border)',
-					borderRadius: 8,
-					padding: '5px 10px',
-					color: 'var(--text-2)',
-					fontSize: 13,
-					cursor: 'pointer',
-					fontFamily: 'inherit',
-				}}
-			>
+			<button type="button" onClick={onSignOut} className="btn-pill">
 				Sign out
 			</button>
 		</div>

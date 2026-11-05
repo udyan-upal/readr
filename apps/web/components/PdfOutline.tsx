@@ -14,27 +14,25 @@ export default function PdfOutline({ items, currentPage, onNavigate }: Props) {
 		<aside
 			className="shrink-0 overflow-auto flex flex-col"
 			style={{
-				width: 248,
-				background: 'var(--surface)',
+				width: 260,
+				background: 'var(--bg)',
 				borderRight: '1px solid var(--border)',
 			}}
 		>
 			<div
 				className="sticky top-0"
 				style={{
-					padding: '13px 14px 11px',
-					borderBottom: '1px solid var(--border-subtle)',
-					background: 'var(--surface)',
+					padding: '14px 18px 10px',
 					fontSize: 10,
 					fontWeight: 700,
-					letterSpacing: '0.08em',
+					letterSpacing: '0.12em',
 					textTransform: 'uppercase' as const,
 					color: 'var(--text-3)',
 				}}
 			>
-				Contents
+				Sections
 			</div>
-			<ul className="py-2" style={{ fontSize: 13 }}>
+			<ul style={{ fontSize: 13, padding: '0 8px 12px' }}>
 				{items.map((it, i) => (
 					<Node key={i} item={it} depth={0} currentPage={currentPage} onNavigate={onNavigate} />
 				))}
@@ -63,17 +61,17 @@ function Node({
 			<div
 				className="flex items-center"
 				style={{
-					paddingLeft: 10 + depth * 14,
-					paddingRight: 10,
-					paddingTop: 3,
-					paddingBottom: 3,
-					borderRadius: 7,
-					margin: '1px 6px',
-					background: active ? 'var(--accent-s)' : 'transparent',
-					transition: 'background 0.1s',
+					paddingLeft: 8 + depth * 14,
+					paddingRight: 8,
+					paddingTop: 6,
+					paddingBottom: 6,
+					borderRadius: 999,
+					margin: '1px 0',
+					background: active ? 'var(--soft)' : 'transparent',
+					transition: 'background 0.12s',
 				}}
 				onMouseEnter={(e) => {
-					if (!active) (e.currentTarget as HTMLDivElement).style.background = 'var(--bg)'
+					if (!active) (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-2)'
 				}}
 				onMouseLeave={(e) => {
 					if (!active) (e.currentTarget as HTMLDivElement).style.background = 'transparent'
@@ -94,10 +92,24 @@ function Node({
 							background: 'transparent',
 							cursor: 'pointer',
 							color: 'var(--text-3)',
-							fontSize: 10,
+							padding: 0,
 						}}
+						aria-label={open ? 'Collapse section' : 'Expand section'}
 					>
-						{open ? '▾' : '▸'}
+						<svg
+							width="11"
+							height="11"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2.6"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.12s' }}
+							aria-hidden="true"
+						>
+							<path d="m9 6 6 6-6 6" />
+						</svg>
 					</button>
 				) : (
 					<span style={{ width: 16, flexShrink: 0 }} />
@@ -117,7 +129,8 @@ function Node({
 						border: 'none',
 						background: 'transparent',
 						cursor: item.pageNumber ? 'pointer' : 'default',
-						color: active ? 'var(--accent)' : 'var(--text-2)',
+						fontFamily: 'inherit',
+						color: active ? 'var(--ink)' : 'var(--text-2)',
 						fontWeight: active ? 600 : 400,
 						opacity: !item.pageNumber ? 0.5 : 1,
 						padding: '0 4px',
@@ -128,7 +141,14 @@ function Node({
 				</button>
 
 				{item.pageNumber && (
-					<span style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>
+					<span
+						style={{
+							fontSize: 11,
+							fontWeight: 600,
+							color: active ? 'var(--ink)' : 'var(--text-3)',
+							flexShrink: 0,
+						}}
+					>
 						{item.pageNumber}
 					</span>
 				)}
