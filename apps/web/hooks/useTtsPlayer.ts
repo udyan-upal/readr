@@ -198,7 +198,15 @@ export function useTtsPlayer() {
 
 			audio.ontimeupdate = () => {
 				if (session !== sessionRef.current) return
-				const idx = wordIndexAt(aligned, chunk, audio.currentTime * 1000)
+				const nearEnd =
+					Number.isFinite(audio.duration) &&
+					audio.duration > 0 &&
+					audio.duration - audio.currentTime < 0.25
+				const idx = nearEnd ? chunk.wordEnd : wordIndexAt(aligned, chunk, audio.currentTime * 1000)
+				if (idx === chunk.wordEnd) {
+					// No more boundaries will arrive for this clip: close out its tail words.
+					audio.ontimeupdate = null
+				}
 				setState((s) =>
 					s.currentWordIndex === idx
 						? s
@@ -210,6 +218,13 @@ export function useTtsPlayer() {
 				if (session !== sessionRef.current) return
 				audio.ontimeupdate = null
 				audio.onended = null
+				// Boundaries can stop before the clip's last words; mark them read now so
+				// the tail never stays unhighlighted while the next clip is fetched.
+				setState((s) => ({
+					...s,
+					currentWordIndex: chunk.wordEnd,
+					progress: progressAt(chunk.wordEnd),
+				}))
 				void advanceRef.current()
 			}
 
@@ -305,6 +320,7 @@ export function useTtsPlayer() {
 				...s,
 				isPlaying: false,
 				progress: 1,
+				currentWordIndex: opts.words.length - 1,
 				endedCount: s.endedCount + 1,
 				gaplessEndedCount: s.gaplessEndedCount + 1,
 			}))
@@ -312,8 +328,14 @@ export function useTtsPlayer() {
 			return
 		}
 
-		setState((s) => ({ ...s, isPlaying: false, progress: 1, endedCount: s.endedCount + 1 }))
-	}, [activateChunk, closeBuffer, releaseActive, startQueuedPage])
+		setState((s) => ({
+			...s,
+			isPlaying: false,
+			progress: 1,
+			currentWordIndex: opts.words.length - 1,
+			endedCount: s.endedCount + 1,
+		}))
+	}, [activateChunk, closeBuffer, progressAt, releaseActive, startQueuedPage])
 
 	useEffect(() => {
 		advanceRef.current = advance
