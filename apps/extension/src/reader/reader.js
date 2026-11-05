@@ -719,6 +719,7 @@ function updateReadAloudUI() {
   updateReadReturnButton();
   const active = readAloudState.isPlaying || readAloudState.isPaused || readAloudState.isLoading;
   btnRead.classList.toggle("active", active);
+  btnRead.classList.toggle("reading", readAloudState.isPlaying);
   readPlayer.classList.toggle("open", readAloudState.isLoading || active || readAloudState.isCompleted || !!readAloudState.error);
   readPlayer.classList.toggle("playing", readAloudState.isPlaying);
   readPlayer.classList.toggle("completed", readAloudState.isCompleted);

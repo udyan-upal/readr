@@ -178,6 +178,32 @@ button { font-family: inherit; cursor: pointer; }
 .toolbar-btn:hover { background: var(--soft); border-color: var(--accent); color: var(--ink); }
 .toolbar-btn.active { background: var(--soft); border-color: var(--accent); color: var(--ink); }
 
+/* Listen button: motion only while narration is actually playing (not paused) */
+#btn-read.reading {
+  background: var(--soft);
+  border-color: var(--accent);
+  color: var(--ink);
+  animation: listen-halo 1.6s ease-out infinite;
+}
+#btn-read.reading svg {
+  transform-origin: 50% 50%;
+  animation: listen-pulse 1.05s ease-in-out infinite;
+}
+@keyframes listen-pulse {
+  0%, 100% { transform: scale(1) translateY(0); }
+  35% { transform: scale(1.26) translateY(-0.5px); }
+  70% { transform: scale(1.1) translateY(0.5px); }
+}
+@keyframes listen-halo {
+  0% { box-shadow: 0 0 0 0 rgba(198, 113, 57, 0.45); }
+  70% { box-shadow: 0 0 0 5px rgba(198, 113, 57, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(198, 113, 57, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #btn-read.reading,
+  #btn-read.reading svg { animation: none; }
+}
+
 .icon-btn {
   width: 34px;
   height: 34px;
