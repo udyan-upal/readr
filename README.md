@@ -2,6 +2,16 @@
 
 Next.js 15 web app. Upload a PDF, extract its text, and hear it read aloud with **word-by-word synchronized highlighting** using Microsoft Edge's neural TTS voices.
 
+## Screenshots
+
+### Web app
+
+![Readr web app showing a PDF with its sections sidebar and the read-aloud player](docs/screenshots/web-app.png)
+
+### Chrome extension
+
+![Readr extension showing an article in the distraction-free reader](docs/screenshots/extension.png)
+
 ## Stack
 
 - Next.js 15 (App Router, TypeScript, strict mode)
@@ -85,6 +95,97 @@ build. Environment values are embedded at build time, so rebuild after editing
 - Dark-mode ready (Tailwind `dark:` classes; toggles with system theme)
 
 ## Architecture
+
+### System overview
+
+```mermaid
+flowchart LR
+	subgraph Browser["Browser"]
+		subgraph WebApp["Next.js web app"]
+			UI["PdfViewer · PlayerControls<br/>NotesPanel · PdfOutline"]
+			TTS["useTtsPlayer<br/>ttsBuffer · alignBoundaries"]
+		end
+		subgraph Extension["Chrome extension (MV3)"]
+			Popup["popup.js"]
+			Extractor["content/extractor.js<br/>Readability"]
+			SW["background/service_worker.js"]
+			Reader["reader.js"]
+		end
+		Local[("chrome.storage.local<br/>settings · annotations")]
+		IDB[("IndexedDB<br/>per-article AI state")]
+	end
+
+	subgraph Cloudflare["Cloudflare (OpenNext)"]
+		API["API routes<br/>tts · pdf · upload-pdf · list-pdfs<br/>notes · session · voices · login · me"]
+		D1[("D1<br/>pdf_notes · reading_sessions")]
+		R2[("R2 bucket<br/>PDFs")]
+	end
+
+	EdgeTTS["Microsoft Edge TTS"]
+	OpenRouter["OpenRouter (primary)"]
+	NVIDIA["NVIDIA (fallback)"]
+
+	Popup -->|executeScript| Extractor
+	Extractor -->|ARTICLE_EXTRACTED| SW
+	SW -->|"storage.session + open reader tab"| Reader
+	Reader --> Local
+	Reader --> IDB
+	Reader -->|"POST /api/tts"| API
+	Reader -->|"tl;dr · Ask"| OpenRouter
+	OpenRouter -.->|fallback| NVIDIA
+	UI --> API
+	TTS -->|"progressive clips"| API
+	API --> EdgeTTS
+	API --> D1
+	API --> R2
+```
+
+The web app talks only to its own API routes. The extension is an independent MV3
+bundle: it reuses the web app's `/api/tts` endpoint for read-aloud, calls the AI
+providers directly, and keeps its own state in `chrome.storage` and IndexedDB.
+
+### Read-aloud pipeline
+
+```mermaid
+sequenceDiagram
+	autonumber
+	participant V as PdfViewer
+	participant P as useTtsPlayer
+	participant B as ttsBuffer
+	participant API as POST /api/tts
+	participant E as Edge TTS
+	participant A as alignBoundaries
+
+	V->>P: Play with the page's extracted words
+	P->>B: Split words into clips<br/>100 → 500 → 1000 → 1500 chars
+	B->>API: Send clip, voice, rate
+	API->>E: SSML with rate + wordBoundaryEnabled
+	E-->>API: Audio + word boundaries (HNS ticks)
+	API-->>B: base64 audio + boundaries in ms
+	B-->>P: Current clip, two buffered ahead
+	P->>A: Boundaries + rendered Word[]
+	A-->>P: Aligned words
+	P-->>V: currentWordIndex on timeupdate
+	V->>V: Highlight word + scroll into view
+	Note over P,B: Near 60% of a page, prefetch the next page's first clip
+```
+
+### Extension capture flow
+
+```mermaid
+flowchart TD
+	Toolbar["Toolbar button"] --> Popup["popup.js<br/>tabs.query + scripting.executeScript"]
+	Popup --> Extractor["content/extractor.js<br/>Mozilla Readability"]
+	Extractor -->|ARTICLE_EXTRACTED| SW["service worker"]
+	SW -->|"storage.session.set"| Store[("chrome.storage.session")]
+	SW -->|"chrome.tabs.create"| Reader["reader/index.html + reader.js"]
+	Store -->|"pendingArticle · pendingError"| Reader
+	Reader --> Render["Render article + sections TOC"]
+	Reader --> Listen["Listen → POST /api/tts"]
+	Reader --> AI["tl;dr + Ask → OpenRouter, NVIDIA fallback"]
+	Reader --> Settings[("chrome.storage.local<br/>theme · font · notes")]
+	Reader --> Cache[("IndexedDB<br/>summaries · chat")]
+```
 
 ### API routes
 
