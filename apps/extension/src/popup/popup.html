@@ -5,15 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>readr</title>
   <link rel="icon" href="../icons/readr.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #F4ECD8;
-      --surface: #FDF6E3;
-      --text-primary: #2C1810;
-      --text-secondary: #7A6652;
-      --text-tertiary: #A0896F;
-      --accent: #2C1810;
-      --border: #DDD0B8;
+      --bg: #F5EAD8;
+      --surface: #F9F4ED;
+      --text-primary: #201E1D;
+      --text-secondary: #645C50;
+      --text-tertiary: #82796A;
+      --accent: #C67139;
+      --accent-hover: #B2622D;
+      --on-accent: #FFF9F2;
+      --border: rgba(32, 30, 29, 0.14);
     }
 
     *, *::before, *::after {
@@ -24,9 +29,9 @@
 
     body {
       width: 240px;
-      height: 150px;
+      height: 168px;
       background: var(--bg);
-      font-family: 'Georgia', serif;
+      font-family: 'Figtree', system-ui, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -36,7 +41,7 @@
     }
 
     #popup-logo {
-      width: 76px;
+      width: 88px;
       height: auto;
       display: block;
     }
@@ -44,12 +49,12 @@
     #open-btn {
       width: 100%;
       background: var(--accent);
-      color: var(--surface);
+      color: var(--on-accent);
       border: none;
-      border-radius: 8px;
+      border-radius: 999px;
       padding: 10px 16px;
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 600;
       cursor: pointer;
       font-family: inherit;
       letter-spacing: 0.01em;
@@ -57,7 +62,7 @@
     }
 
     #open-btn:hover {
-      opacity: 0.82;
+      background: var(--accent-hover);
     }
 
     #open-btn:disabled {
@@ -74,7 +79,7 @@
   </style>
 </head>
 <body>
-  <img id="popup-logo" src="../icons/readr-nobg.png" alt="readr" />
+  <img id="popup-logo" src="../icons/readr-stacked.svg" alt="readr" />
   <button id="open-btn">Open readr</button>
   <span id="status"></span>
   <script src="popup.js"></script>

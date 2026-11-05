@@ -124,18 +124,23 @@ button { font-family: inherit; cursor: pointer; }
 }
 
 #brand-mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  object-fit: cover;
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
   flex-shrink: 0;
 }
 
+/* The approved wordmark is a filled SVG; masking it lets the current theme
+   colour the letterforms exactly like text. */
 #brand-logo {
-  font-family: 'Caprasimo', system-ui, sans-serif;
-  font-size: 19px;
-  letter-spacing: 0.01em;
+  display: block;
+  width: 54px;
+  height: 19px;
+  flex-shrink: 0;
+  background: currentColor;
   color: var(--text-primary);
+  -webkit-mask: url("../icons/readr-wordmark.svg") left center / contain no-repeat;
+  mask: url("../icons/readr-wordmark.svg") left center / contain no-repeat;
 }
 
 .toolbar-divider {

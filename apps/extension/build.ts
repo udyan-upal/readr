@@ -1,6 +1,5 @@
 import { copyFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
-import { spawnSync } from "child_process";
 
 const outdir = "dist";
 
@@ -75,11 +74,13 @@ async function build() {
   await copyFile("src/popup/popup.html", `${outdir}/popup/popup.html`);
   await copyFile("icons/readr.png", `${outdir}/icons/readr.png`);
   await copyFile("icons/readr-nobg.png", `${outdir}/icons/readr-nobg.png`);
+  await copyFile("icons/readr-wordmark.svg", `${outdir}/icons/readr-wordmark.svg`);
+  await copyFile("icons/readr-stacked.svg", `${outdir}/icons/readr-stacked.svg`);
 
-  // Resize brand logo into required icon sizes
-  const logo = "icons/readr.png";
+  // The identity kit ships hand-tuned 16/48/128 px cuts (the 16 px mark uses
+  // three bars), so copy them instead of resampling one large file.
   for (const size of [16, 48, 128]) {
-    spawnSync("sips", ["-z", String(size), String(size), logo, "--out", `${outdir}/icons/icon${size}.png`]);
+    await copyFile(`icons/icon${size}.png`, `${outdir}/icons/icon${size}.png`);
   }
 
   console.log("Static files copied.");
