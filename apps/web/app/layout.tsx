@@ -1,9 +1,27 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
 	title: 'readr — PDF read aloud',
-	description: 'Upload a PDF and hear it read aloud with Edge neural voices',
+	description: 'Upload a PDF and hear it read aloud with word-synced Edge neural voices',
+	applicationName: 'readr',
+	manifest: '/site.webmanifest',
+	icons: {
+		icon: [
+			{ url: '/favicon.ico', sizes: '48x48' },
+			{ url: '/favicon.svg', type: 'image/svg+xml' },
+		],
+		apple: '/apple-touch-icon.png',
+	},
+	openGraph: {
+		title: 'readr — PDF read aloud',
+		description: 'Upload a PDF and hear it read aloud with word-synced Edge neural voices',
+		type: 'website',
+	},
+}
+
+export const viewport: Viewport = {
+	themeColor: '#c67139',
 }
 
 /** Applies the saved theme before first paint so there is no flash. */

@@ -1,9 +1,9 @@
 'use client'
 
-import Image from 'next/image'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { FaNotesMedical } from 'react-icons/fa'
 import { AuthPanel } from '@/components/AuthPanel'
+import { BrandLockup } from '@/components/BrandLockup'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import NotesPanel from '@/components/NotesPanel'
 import PdfOutline from '@/components/PdfOutline'
@@ -725,17 +725,8 @@ export default function Home() {
 						width: '100%',
 					}}
 				>
-					<Image
-						src="/readr-logo-nobg.png"
-						alt="Readr"
-						width={64}
-						height={64}
-						style={{ objectFit: 'contain' }}
-					/>
+					<BrandLockup variant="stacked" height={138} />
 					<div style={{ textAlign: 'center' }}>
-						<h1 className="brand-logo" style={{ fontSize: 30, margin: '0 0 8px' }}>
-							readr
-						</h1>
 						<p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.5, margin: 0 }}>
 							Word-synced narration with
 							<br />
@@ -774,14 +765,7 @@ export default function Home() {
 					}}
 				>
 					<div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-						<Image
-							src="/readr-logo-nobg.png"
-							alt="readr"
-							width={28}
-							height={28}
-							className="brand-mark"
-						/>
-						<span className="brand-logo">readr</span>
+						<BrandLockup height={45} />
 					</div>
 					<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 						<ThemeToggle compact />
@@ -1047,8 +1031,13 @@ export default function Home() {
 					flexShrink: 0,
 				}}
 			>
-				{/* Left: home + brand + contents */}
-				<div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+				{/* Left: brand, then navigation */}
+				<div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+					<BrandLockup height={42} />
+					<span
+						aria-hidden="true"
+						style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }}
+					/>
 					<button type="button" className="btn-pill" onClick={handleBackHome} title="Back to home">
 						<svg
 							width="14"
@@ -1065,17 +1054,6 @@ export default function Home() {
 						</svg>
 						Home
 					</button>
-					<span aria-hidden="true" style={{ width: 1, height: 18, background: 'var(--border)' }} />
-					<Image
-						src="/readr-logo-nobg.png"
-						alt="readr"
-						width={26}
-						height={26}
-						className="brand-mark"
-					/>
-					<span className="brand-logo" style={{ fontSize: 18 }}>
-						readr
-					</span>
 					{outline.length > 0 && (
 						<button
 							type="button"
@@ -1083,7 +1061,6 @@ export default function Home() {
 							onClick={() => setOutlineOpen((o) => !o)}
 							aria-label="Toggle contents"
 							title="Contents"
-							style={{ marginLeft: 4 }}
 						>
 							<svg
 								width="15"

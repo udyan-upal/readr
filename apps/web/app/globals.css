@@ -193,12 +193,24 @@ button {
 	letter-spacing: 0.01em;
 	color: var(--text-1);
 }
-.brand-mark {
-	width: 28px;
-	height: 28px;
-	border-radius: var(--r-pill);
-	object-fit: contain;
+.brand-lockup {
+	display: inline-flex;
+	align-items: center;
 	flex-shrink: 0;
+}
+.brand-lockup img {
+	height: 100%;
+	width: auto;
+	display: block;
+}
+.brand-lockup img.brand-on-dark {
+	display: none;
+}
+[data-theme="dark"] .brand-lockup img.brand-on-light {
+	display: none;
+}
+[data-theme="dark"] .brand-lockup img.brand-on-dark {
+	display: block;
 }
 
 /* Custom scrollbar */
