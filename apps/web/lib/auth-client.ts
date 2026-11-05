@@ -39,8 +39,11 @@ export async function signIn(input: { username: string; password: string }): Pro
 		body: JSON.stringify(input),
 	})
 	if (!res.ok) {
-		const body = (await res.json().catch(() => null)) as { message?: string } | null
-		throw new Error(body?.message || 'Incorrect username or password.')
+		const body = (await res.json().catch(() => null)) as {
+			message?: string
+			error?: string
+		} | null
+		throw new Error(body?.message || body?.error || 'Incorrect username or password.')
 	}
 	const { token } = (await res.json()) as { token: string }
 	setSessionToken(token)
