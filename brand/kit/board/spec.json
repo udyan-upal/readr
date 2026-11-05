@@ -1,0 +1,39 @@
+{
+	"brand": "Readr",
+	"tagline": "Upload a PDF and hear it read aloud",
+	"brief": "Readr reads PDFs aloud with word-by-word highlighting. The mark must connect reading and listening, replace the current book-and-sound-waves clip art, and fit the app's warm paper and orange interface.",
+	"adjectives": ["warm", "clear", "bookish", "attentive"],
+	"criteria": "Success: reads as book and sound at a glance, works at 16 px and in one colour, belongs with the app's existing palette.",
+	"industry": "consumer-app",
+	"brand_color": "#c67139",
+	"greyscale": false,
+	"final": true,
+	"designer": "Claude Code",
+	"round": 3,
+	"concepts": [
+		{
+			"name": "Cutout, Bold",
+			"symbol": "../svg/readr-symbol.svg",
+			"lockup": "../svg/readr-horizontal.svg",
+			"stacked": "../svg/readr-stacked.svg",
+			"symbol_on_dark": "../svg/readr-symbol-reversed.svg",
+			"lockup_on_dark": "../svg/readr-horizontal-reversed.svg",
+			"stacked_on_dark": "../svg/readr-stacked-reversed.svg",
+			"symbol_on_tile": "../svg/readr-symbol-white.svg",
+			"lockup_on_tile": "../svg/readr-horizontal-white.svg",
+			"stacked_on_tile": "../svg/readr-stacked-white.svg",
+			"idea": "A solid open book with a soundwave punched through it.",
+			"rationale": [
+				"One silhouette holds both halves of the product: reading and listening",
+				"Five thick bars stay open at small sizes; a three-bar cut covers 16 px",
+				"Colour comes straight from the app's accent, so logo and interface match"
+			]
+		}
+	],
+	"recommendation": "Cutout, Bold is the final direction.",
+	"next_steps": [
+		"Swap the logo and icons into the web app and extension",
+		"Run a trademark search",
+		"Match a Pantone from a physical swatch before any print"
+	]
+}

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Readr Logo Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f9f4ed;--paper:#f5ead8;--ink:#201e1d;--muted:#645c50;--line:rgba(32,30,29,.14);--accent:#c67139;--deep:#8c491a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Figtree,system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:48px 16px 64px}
+h1{font-size:34px;margin:0 0 4px;line-height:1.15}h2{font-size:20px;margin:0 0 12px}section{padding:32px 0;border-top:1px solid var(--line)}
+.lead{color:var(--muted);margin:0 0 28px}p{margin:0 0 12px}.muted{color:var(--muted);font-size:14px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.tile{border:1px solid var(--line);border-radius:12px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;gap:14px;min-height:150px;background:#fff}
+.tile img{max-width:100%;max-height:92px;margin:auto}.tile span{font-size:13px;color:var(--muted)}
+.dark{background:var(--ink)}.dark span{color:var(--paper)}.paper{background:var(--paper)}.acc{background:var(--accent)}.acc span{color:#fff}
+.hero{background:#fff;border:1px solid var(--line);border-radius:12px;padding:32px;text-align:center;margin-bottom:12px}.hero img{width:min(480px,100%)}
+svg.dia{width:100%;max-width:640px;display:block;background:#fff;border:1px solid var(--line);border-radius:12px}
+.wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px;min-width:520px}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}th{color:var(--muted);font-weight:600}
+.sw{display:inline-block;width:18px;height:18px;border-radius:4px;border:1px solid var(--line);vertical-align:-4px;margin-right:8px}
+code{font:13px ui-monospace,Menlo,monospace}ul{margin:0;padding-left:20px}li{margin-bottom:4px}
+.row{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-end}.row div{text-align:center;font-size:12px;color:var(--muted)}.row img{display:block;margin:0 auto 6px}
+</style></head><body><main>
+<h1>Readr logo guide</h1><p class="lead">A solid open book with a soundwave punched through it: reading and listening in one shape.</p>
+
+<div class="hero"><img src="svg/readr-horizontal.svg" alt="Readr horizontal logo"></div>
+<section><h2>Versions</h2><div class="grid">
+<div class="tile"><img src="svg/readr-horizontal.svg" alt=""><span>Horizontal: the default</span></div>
+<div class="tile"><img src="svg/readr-stacked.svg" alt=""><span>Stacked: square-ish spaces</span></div>
+<div class="tile"><img src="svg/readr-symbol.svg" alt=""><span>Symbol: icons and avatars</span></div>
+<div class="tile"><img src="svg/readr-wordmark.svg" alt=""><span>Wordmark: when the symbol is already nearby</span></div>
+</div></section>
+
+<section><h2>Clear space</h2><p>Keep clear space equal to the height of the second bar (x) on every side. It scales with the logo.</p>
+<svg class="dia" viewBox="-54 -10 840 276" role="img" aria-label="Clear space around the horizontal logo">
+<image href="svg/readr-horizontal.svg" width="732" height="256"/>
+<rect x="-34" y="0" width="800" height="256" fill="none" stroke="#c67139" stroke-width="2" stroke-dasharray="8 6"/>
+<rect x="16" y="50" width="700" height="156" fill="none" stroke="#645c50" stroke-width="1"/>
+<path d="M-34 128H16M716 128H766M366 0V50M366 206V256" stroke="#c67139" stroke-width="2"/>
+</svg></section>
+
+<section><h2>Minimum size</h2>
+<div class="wrap"><table><tr><th>Version</th><th>Screen</th><th>Print (starting point, not print-tested)</th></tr>
+<tr><td>Horizontal</td><td>96 px wide</td><td>25 mm wide</td></tr>
+<tr><td>Symbol, five bars</td><td>24 px</td><td>8 mm</td></tr>
+<tr><td>Small cut, three bars</td><td>16 to 23 px only</td><td>Under 8 mm</td></tr></table></div>
+<div class="row" style="margin-top:20px">
+<div><img src="svg/readr-horizontal.svg" width="96" alt="">96 px</div><div><img src="svg/readr-symbol.svg" width="24" alt="">24 px</div><div><img src="extension/icon16.png" width="16" alt="">16 px small cut</div>
+</div></section>
+
+<section><h2>Colour</h2>
+<div class="wrap"><table><tr><th>Name</th><th>HEX</th><th>RGB</th><th>CMYK (computed)</th><th>Use</th></tr>
+<tr><td><i class="sw" style="background:#c67139"></i>Accent</td><td><code>#c67139</code></td><td>198 113 57</td><td>0 43 71 22</td><td>Symbol, icon tiles</td></tr>
+<tr><td><i class="sw" style="background:#201e1d"></i>Ink</td><td><code>#201e1d</code></td><td>32 30 29</td><td>0 6 9 87</td><td>Wordmark, dark backgrounds</td></tr>
+<tr><td><i class="sw" style="background:#f5ead8"></i>Paper</td><td><code>#f5ead8</code></td><td>245 234 216</td><td>0 4 12 4</td><td>Light backgrounds, wordmark on dark</td></tr>
+<tr><td><i class="sw" style="background:#8c491a"></i>Deep</td><td><code>#8c491a</code></td><td>140 73 26</td><td>0 48 81 45</td><td>One-colour logo where accent is too light</td></tr></table></div>
+<p class="muted" style="margin-top:12px">All four come from the app's existing tokens. Accent has 3.6:1 contrast on white and 3.0:1 on paper: fine for a logo, too low for small text. Use Deep (5.7:1 on paper) for text. CMYK is a math conversion, so proof it before printing.</p>
+<div class="grid" style="margin-top:16px">
+<div class="tile"><img src="svg/readr-horizontal.svg" alt=""><span>Full colour on white</span></div>
+<div class="tile paper"><img src="svg/readr-horizontal.svg" alt=""><span>Full colour on paper</span></div>
+<div class="tile dark"><img src="svg/readr-horizontal-reversed.svg" alt=""><span>Reversed on ink</span></div>
+<div class="tile acc"><img src="svg/readr-horizontal-white.svg" alt=""><span>White on accent</span></div>
+<div class="tile"><img src="svg/readr-horizontal-black.svg" alt=""><span>Black, one colour</span></div>
+<div class="tile dark"><img src="svg/readr-horizontal-white.svg" alt=""><span>White, one colour</span></div>
+</div></section>
+
+<section><h2>Type</h2><p>The wordmark is custom-drawn, so always use the files instead of typing it. Alongside the logo, use the app's fonts: Figtree for text and Caprasimo for display.</p></section>
+
+<section><h2>Don't</h2><ul>
+<li>Stretch, rotate or redraw the logo, or change the bar count.</li>
+<li>Use colours outside the palette, or add gradients, shadows or outlines.</li>
+<li>Rearrange or resize the symbol and wordmark within a lockup.</li>
+<li>Use the three-bar small cut above 23 px.</li>
+<li>Use dark-ink artwork on dark backgrounds. The reversed and white files have opened-up geometry for that.</li>
+<li>Place it on busy images without a solid backing.</li>
+</ul></section>
+
+<section><h2>Files</h2><div class="wrap"><table>
+<tr><th>Folder</th><th>Contents</th></tr>
+<tr><td><code>svg/</code></td><td>Symbol, horizontal, stacked, wordmark: full colour, reversed, black, white, accent, deep. Plus <code>readr-symbol-small.svg</code></td></tr>
+<tr><td><code>png/</code></td><td>Transparent PNGs of the main versions</td></tr>
+<tr><td><code>web/</code></td><td>Favicons, Apple touch, PWA and maskable icons, manifest, <code>head-snippet.html</code></td></tr>
+<tr><td><code>extension/</code></td><td>Chrome extension icons at 16, 48 and 128 px</td></tr>
+<tr><td><code>board/</code></td><td>Presentation with mockups (placeholder names and URLs are mockup text)</td></tr>
+<tr><td><code>generate.py</code></td><td>Regenerates the master SVGs</td></tr></table></div></section>
+
+<section><h2>Open items</h2><ul>
+<li>No trademark search has been done. Run one before public launch.</li>
+<li>Pantone not chosen. Match from a physical swatch before spot-colour printing.</li>
+<li>Not yet wired into the web app or extension.</li>
+<li>Not tested on vinyl cutters or embroidery. Have a vector editor check the files first.</li>
+</ul></section>
+</main></body></html>
