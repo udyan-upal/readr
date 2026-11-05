@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { OutlineItem } from '@/types'
 
 interface Props {
@@ -9,7 +9,55 @@ interface Props {
 	onNavigate: (page: number) => void
 }
 
+interface FlatEntry {
+	key: string
+	page: number | undefined
+}
+
+function flatten(items: OutlineItem[], prefix = ''): FlatEntry[] {
+	const out: FlatEntry[] = []
+	items.forEach((item, i) => {
+		const key = prefix ? `${prefix}.${i}` : String(i)
+		out.push({ key, page: item.pageNumber })
+		if (item.items.length) out.push(...flatten(item.items, key))
+	})
+	return out
+}
+
 export default function PdfOutline({ items, currentPage, onNavigate }: Props) {
+	const flat = useMemo(() => flatten(items), [items])
+	const [activeKey, setActiveKey] = useState<string | null>(null)
+
+	// Several sections can share a page (e.g. Conclusion and Impact Statement).
+	// Highlight only one: keep the section the reader picked, otherwise fall back
+	// to the first section on this page, then the last one before it.
+	useEffect(() => {
+		if (!flat.length) {
+			setActiveKey(null)
+			return
+		}
+		const current = flat.find((entry) => entry.key === activeKey)
+		if (current?.page === currentPage) return
+
+		const samePage = flat.find((entry) => entry.page === currentPage)
+		if (samePage) {
+			if (samePage.key !== activeKey) setActiveKey(samePage.key)
+			return
+		}
+
+		let previous: FlatEntry | undefined
+		for (const entry of flat) {
+			if (entry.page != null && entry.page <= currentPage) previous = entry
+		}
+		const next = previous?.key ?? null
+		if (next !== activeKey) setActiveKey(next)
+	}, [activeKey, currentPage, flat])
+
+	const select = (key: string, page: number | undefined) => {
+		setActiveKey(key)
+		if (page) onNavigate(page)
+	}
+
 	return (
 		<aside
 			className="shrink-0 overflow-auto flex flex-col"
@@ -34,7 +82,14 @@ export default function PdfOutline({ items, currentPage, onNavigate }: Props) {
 			</div>
 			<ul style={{ fontSize: 13, padding: '0 8px 12px' }}>
 				{items.map((it, i) => (
-					<Node key={i} item={it} depth={0} currentPage={currentPage} onNavigate={onNavigate} />
+					<Node
+						key={i}
+						item={it}
+						path={String(i)}
+						depth={0}
+						activeKey={activeKey}
+						onSelect={select}
+					/>
 				))}
 			</ul>
 		</aside>
@@ -43,18 +98,20 @@ export default function PdfOutline({ items, currentPage, onNavigate }: Props) {
 
 function Node({
 	item,
+	path,
 	depth,
-	currentPage,
-	onNavigate,
+	activeKey,
+	onSelect,
 }: {
 	item: OutlineItem
+	path: string
 	depth: number
-	currentPage: number
-	onNavigate: (page: number) => void
+	activeKey: string | null
+	onSelect: (key: string, page: number | undefined) => void
 }) {
 	const [open, setOpen] = useState(depth < 1)
 	const hasChildren = item.items.length > 0
-	const active = item.pageNumber === currentPage
+	const active = activeKey === path
 
 	return (
 		<li>
@@ -117,8 +174,9 @@ function Node({
 
 				<button
 					type="button"
-					onClick={() => item.pageNumber && onNavigate(item.pageNumber)}
+					onClick={() => onSelect(path, item.pageNumber)}
 					disabled={!item.pageNumber}
+					aria-current={active ? 'location' : undefined}
 					style={{
 						flex: 1,
 						textAlign: 'left',
@@ -160,9 +218,10 @@ function Node({
 						<Node
 							key={i}
 							item={ch}
+							path={`${path}.${i}`}
 							depth={depth + 1}
-							currentPage={currentPage}
-							onNavigate={onNavigate}
+							activeKey={activeKey}
+							onSelect={onSelect}
 						/>
 					))}
 				</ul>
