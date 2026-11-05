@@ -178,21 +178,40 @@ button { font-family: inherit; cursor: pointer; }
 .toolbar-btn:hover { background: var(--soft); border-color: var(--accent); color: var(--ink); }
 .toolbar-btn.active { background: var(--soft); border-color: var(--accent); color: var(--ink); }
 
-/* Listen button: motion only while narration is actually playing (not paused) */
+/* Listen button: headphone becomes a live waveform only while narration is playing (not paused) */
+#btn-read .read-wave {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 14px;
+  height: 14px;
+}
+#btn-read .read-wave i {
+  display: block;
+  width: 2px;
+  height: 14px;
+  border-radius: 999px;
+  background: currentColor;
+  transform-origin: 50% 50%;
+  animation: read-wave-bar 0.9s ease-in-out infinite;
+}
+#btn-read .read-wave i:nth-child(1) { animation-delay: -0.45s; }
+#btn-read .read-wave i:nth-child(2) { animation-delay: -0.3s; }
+#btn-read .read-wave i:nth-child(3) { animation-delay: -0.15s; }
+#btn-read .read-wave i:nth-child(4) { animation-delay: 0s; }
+#btn-read .read-wave i:nth-child(5) { animation-delay: -0.6s; }
 #btn-read.reading {
   background: var(--soft);
   border-color: var(--accent);
   color: var(--ink);
   animation: listen-halo 1.6s ease-out infinite;
 }
-#btn-read.reading svg {
-  transform-origin: 50% 50%;
-  animation: listen-pulse 1.05s ease-in-out infinite;
-}
-@keyframes listen-pulse {
-  0%, 100% { transform: scale(1) translateY(0); }
-  35% { transform: scale(1.26) translateY(-0.5px); }
-  70% { transform: scale(1.1) translateY(0.5px); }
+#btn-read.reading .read-icon { display: none; }
+#btn-read.reading .read-wave { display: flex; }
+@keyframes read-wave-bar {
+  0%, 100% { transform: scaleY(0.25); }
+  50% { transform: scaleY(1); }
 }
 @keyframes listen-halo {
   0% { box-shadow: 0 0 0 0 rgba(198, 113, 57, 0.45); }
@@ -201,7 +220,12 @@ button { font-family: inherit; cursor: pointer; }
 }
 @media (prefers-reduced-motion: reduce) {
   #btn-read.reading,
-  #btn-read.reading svg { animation: none; }
+  #btn-read.reading .read-wave i { animation: none; }
+  #btn-read.reading .read-wave i:nth-child(1) { transform: scaleY(0.35); }
+  #btn-read.reading .read-wave i:nth-child(2) { transform: scaleY(0.7); }
+  #btn-read.reading .read-wave i:nth-child(3) { transform: scaleY(1); }
+  #btn-read.reading .read-wave i:nth-child(4) { transform: scaleY(0.7); }
+  #btn-read.reading .read-wave i:nth-child(5) { transform: scaleY(0.35); }
 }
 
 .icon-btn {
