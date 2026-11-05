@@ -25,6 +25,7 @@ interface R2Bucket {
 		options?: { httpMetadata?: { contentType?: string } },
 	): Promise<unknown>
 	get(key: string): Promise<R2ObjectBody | null>
+	delete(key: string | string[]): Promise<void>
 	list(options: { prefix: string; cursor?: string }): Promise<{
 		objects: R2ObjectMeta[]
 		truncated: boolean

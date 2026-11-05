@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { FaNotesMedical } from 'react-icons/fa'
 import { AuthPanel } from '@/components/AuthPanel'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import NotesPanel from '@/components/NotesPanel'
 import PdfOutline from '@/components/PdfOutline'
 import PdfUploader from '@/components/PdfUploader'
@@ -92,6 +93,8 @@ export default function Home() {
 	const [notesOpen, setNotesOpen] = useState(false)
 	const [highlightNoteId, setHighlightNoteId] = useState<string | null>(null)
 	const [currentPdfPath, setCurrentPdfPath] = useState<string | null>(null)
+	const [deletingPath, setDeletingPath] = useState<string | null>(null)
+	const [pendingDelete, setPendingDelete] = useState<SavedPdf | null>(null)
 
 	// Read restore path from URL on mount (e.g. /read/user_xxx%2Ffile.pdf)
 	const [restorePath] = useState<string | null>(() => {
@@ -386,6 +389,26 @@ export default function Home() {
 		setFile(null)
 		window.history.replaceState(null, '', '/')
 	}, [currentPage, isSignedIn, rate, resetReader, saveSession, tts.currentWordIndex, voice])
+
+	const handleDeleteSaved = useCallback(
+		async (pdf: SavedPdf) => {
+			setDeletingPath(pdf.path)
+			try {
+				const res = await apiFetch(`/api/pdf?path=${encodeURIComponent(pdf.path)}`, {
+					method: 'DELETE',
+				})
+				if (!res.ok) throw new Error(`Delete failed (${res.status})`)
+				setSavedPdfs((prev) => prev.filter((p) => p.path !== pdf.path))
+				setPendingDelete(null)
+				if (currentPdfPathRef.current === pdf.path) handleBackHome()
+			} catch (err) {
+				window.alert(err instanceof Error ? err.message : 'Could not delete PDF.')
+			} finally {
+				setDeletingPath(null)
+			}
+		},
+		[handleBackHome],
+	)
 
 	// Restore session when reloading a /read/:path URL.
 	// Use handleOpenSaved (not Resume) — autoplay is blocked by browser after reload.
@@ -911,6 +934,55 @@ export default function Home() {
 													</div>
 												)}
 											</div>
+											<button
+												type="button"
+												aria-label={`Delete ${pdf.name}`}
+												title="Delete"
+												disabled={deletingPath === pdf.path}
+												onClick={(e) => {
+													e.stopPropagation()
+													setPendingDelete(pdf)
+												}}
+												style={{
+													flexShrink: 0,
+													width: 30,
+													height: 30,
+													display: 'flex',
+													alignItems: 'center',
+													justifyContent: 'center',
+													padding: 0,
+													borderRadius: 8,
+													border: 'none',
+													background: 'transparent',
+													color: 'var(--text-3)',
+													cursor: deletingPath === pdf.path ? 'default' : 'pointer',
+													opacity: deletingPath === pdf.path ? 0.5 : 1,
+													transition: 'color 0.15s, background 0.15s',
+												}}
+												onMouseEnter={(e) => {
+													if (deletingPath === pdf.path) return
+													e.currentTarget.style.color = 'var(--danger)'
+													e.currentTarget.style.background = 'var(--surface-2)'
+												}}
+												onMouseLeave={(e) => {
+													e.currentTarget.style.color = 'var(--text-3)'
+													e.currentTarget.style.background = 'transparent'
+												}}
+											>
+												<svg
+													width="15"
+													height="15"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													strokeWidth="1.9"
+													strokeLinecap="round"
+													strokeLinejoin="round"
+													aria-hidden="true"
+												>
+													<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5" />
+												</svg>
+											</button>
 											{pdf.lastPage != null && (
 												<button
 													type="button"
@@ -950,6 +1022,26 @@ export default function Home() {
 						</div>
 					)}
 				</div>
+
+				<ConfirmDialog
+					open={pendingDelete !== null}
+					title="Delete this document?"
+					body={
+						<>
+							<span style={{ color: 'var(--text-1)', fontWeight: 600 }}>{pendingDelete?.name}</span>{' '}
+							will be removed from your library, together with its notes and saved reading position.
+							This cannot be undone.
+						</>
+					}
+					confirmLabel="Delete"
+					busy={deletingPath !== null}
+					onConfirm={() => {
+						if (pendingDelete) void handleDeleteSaved(pendingDelete)
+					}}
+					onCancel={() => {
+						if (deletingPath === null) setPendingDelete(null)
+					}}
+				/>
 			</main>
 		)
 	}
