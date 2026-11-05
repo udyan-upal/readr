@@ -332,7 +332,7 @@ export default function Home() {
 	const handleOpenSaved = useCallback(
 		async (pdf: SavedPdf) => {
 			try {
-				const res = await fetch(pdf.url)
+				const res = await apiFetch(pdf.url)
 				const blob = await res.blob()
 				const f = new File([blob], pdf.name, { type: 'application/pdf' })
 				resetReader()
@@ -354,7 +354,7 @@ export default function Home() {
 	const handleResumeSaved = useCallback(
 		async (pdf: SavedPdf) => {
 			try {
-				const res = await fetch(pdf.url)
+				const res = await apiFetch(pdf.url)
 				const blob = await res.blob()
 				const f = new File([blob], pdf.name, { type: 'application/pdf' })
 				resetReader()

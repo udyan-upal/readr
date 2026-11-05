@@ -55,7 +55,9 @@ test('TTS requests use normal speed regardless of selected playback speed', asyn
   const requests = [];
   Object.assign(h.context, {
     EDGE_TTS_API_URL: 'http://localhost:3001/api/tts',
+    EDGE_TTS_API_TOKEN: 'ext-token',
     fetch: async (_, options) => {
+      assert.equal(options.headers.Authorization, 'Bearer ext-token');
       requests.push(JSON.parse(options.body));
       return { ok: true, json: async () => ({ audio: 'test', boundaries: [] }) };
     },

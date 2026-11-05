@@ -1,5 +1,5 @@
+import { bindings } from '@/lib/cf'
 import { getUserId, unauthorized } from '@/lib/require-user'
-import { createAdminClient } from '@/utils/supabase/admin'
 
 export const runtime = 'nodejs'
 
@@ -24,34 +24,27 @@ export async function GET(req: Request) {
 	const page = searchParams.get('page')
 	if (!path) return Response.json({ notes: [] })
 
-	const supabase = createAdminClient()
+	const { DB } = bindings()
 
 	if (!page) {
 		// Return all notes for this PDF across all pages
-		const { data, error } = await supabase
-			.from('pdf_notes')
-			.select('*')
-			.eq('user_id', userId)
-			.eq('pdf_path', path)
-			.order('page_number', { ascending: true })
-			.order('line_y', { ascending: true })
-		if (error) return Response.json({ error: error.message }, { status: 500 })
-		return Response.json({ notes: data ?? [] })
+		const { results } = await DB.prepare(
+			'SELECT * FROM pdf_notes WHERE user_id = ? AND pdf_path = ? ORDER BY page_number, line_y',
+		)
+			.bind(userId, path)
+			.all()
+		return Response.json({ notes: results })
 	}
 
 	const pageNumber = toInt(page)
 	if (pageNumber == null || pageNumber < 1) return Response.json({ notes: [] })
 
-	const { data, error } = await supabase
-		.from('pdf_notes')
-		.select('*')
-		.eq('user_id', userId)
-		.eq('pdf_path', path)
-		.eq('page_number', pageNumber)
-		.order('line_y', { ascending: true })
-
-	if (error) return Response.json({ error: error.message }, { status: 500 })
-	return Response.json({ notes: data ?? [] })
+	const { results } = await DB.prepare(
+		'SELECT * FROM pdf_notes WHERE user_id = ? AND pdf_path = ? AND page_number = ? ORDER BY line_y',
+	)
+		.bind(userId, path, pageNumber)
+		.all()
+	return Response.json({ notes: results })
 }
 
 export async function POST(req: Request) {
@@ -84,22 +77,15 @@ export async function POST(req: Request) {
 		return Response.json({ error: 'Invalid note payload' }, { status: 400 })
 	}
 
-	const supabase = createAdminClient()
-	const { data, error } = await supabase
-		.from('pdf_notes')
-		.insert({
-			user_id: userId,
-			pdf_path: path,
-			page_number: pageNumber,
-			note_text: noteText,
-			line_y: lineY,
-			word_index: wordIndex,
-		})
-		.select()
-		.single()
-
-	if (error) return Response.json({ error: error.message }, { status: 500 })
-	return Response.json({ note: data })
+	const { DB } = bindings()
+	const id = crypto.randomUUID()
+	await DB.prepare(
+		'INSERT INTO pdf_notes (id, user_id, pdf_path, page_number, note_text, line_y, word_index) VALUES (?, ?, ?, ?, ?, ?, ?)',
+	)
+		.bind(id, userId, path, pageNumber, noteText, lineY, wordIndex)
+		.run()
+	const note = await DB.prepare('SELECT * FROM pdf_notes WHERE id = ?').bind(id).first()
+	return Response.json({ note })
 }
 
 export async function PATCH(req: Request) {
@@ -113,17 +99,14 @@ export async function PATCH(req: Request) {
 	const body = (await req.json()) as { noteText: string }
 	const noteText = typeof body.noteText === 'string' ? body.noteText.trim() : ''
 	if (!noteText) return Response.json({ error: 'Note text is required' }, { status: 400 })
-	const supabase = createAdminClient()
-	const { data, error } = await supabase
-		.from('pdf_notes')
-		.update({ note_text: noteText })
-		.eq('id', id)
-		.eq('user_id', userId)
-		.select()
-		.single()
-
-	if (error) return Response.json({ error: error.message }, { status: 500 })
-	return Response.json({ note: data })
+	const { DB } = bindings()
+	const note = await DB.prepare(
+		'UPDATE pdf_notes SET note_text = ? WHERE id = ? AND user_id = ? RETURNING *',
+	)
+		.bind(noteText, id, userId)
+		.first()
+	if (!note) return Response.json({ error: 'Note not found' }, { status: 404 })
+	return Response.json({ note })
 }
 
 export async function DELETE(req: Request) {
@@ -134,9 +117,9 @@ export async function DELETE(req: Request) {
 	const id = searchParams.get('id')
 	if (!id) return Response.json({ error: 'Missing id' }, { status: 400 })
 
-	const supabase = createAdminClient()
-	const { error } = await supabase.from('pdf_notes').delete().eq('id', id).eq('user_id', userId)
-
-	if (error) return Response.json({ error: error.message }, { status: 500 })
+	await bindings()
+		.DB.prepare('DELETE FROM pdf_notes WHERE id = ? AND user_id = ?')
+		.bind(id, userId)
+		.run()
 	return Response.json({ ok: true })
 }

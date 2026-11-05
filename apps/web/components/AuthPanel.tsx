@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn, signUp } from '@/lib/auth-client'
+import { signIn } from '@/lib/auth-client'
 
 const inputStyle: React.CSSProperties = {
 	width: '100%',
@@ -23,11 +23,9 @@ const labelStyle: React.CSSProperties = {
 	marginBottom: 6,
 }
 
-/** Email + password sign-in / sign-up against apps/auth. */
+/** Username + password sign-in for the single admin user. */
 export function AuthPanel({ onSignedIn }: { onSignedIn: () => void }) {
-	const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in')
-	const [email, setEmail] = useState('')
-	const [name, setName] = useState('')
+	const [username, setUsername] = useState('')
 	const [password, setPassword] = useState('')
 	const [error, setError] = useState<string | null>(null)
 	const [busy, setBusy] = useState(false)
@@ -37,8 +35,7 @@ export function AuthPanel({ onSignedIn }: { onSignedIn: () => void }) {
 		setError(null)
 		setBusy(true)
 		try {
-			if (mode === 'sign-up') await signUp({ email, name, password })
-			else await signIn({ email, password })
+			await signIn({ username, password })
 			onSignedIn()
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Something went wrong.')
@@ -49,33 +46,16 @@ export function AuthPanel({ onSignedIn }: { onSignedIn: () => void }) {
 
 	return (
 		<form onSubmit={submit} style={{ width: '100%', display: 'grid', gap: 14 }}>
-			{mode === 'sign-up' && (
-				<div>
-					<label htmlFor="auth-name" style={labelStyle}>
-						Name
-					</label>
-					<input
-						id="auth-name"
-						value={name}
-						onChange={(e) => setName(e.target.value)}
-						required
-						autoComplete="name"
-						style={inputStyle}
-					/>
-				</div>
-			)}
-
 			<div>
-				<label htmlFor="auth-email" style={labelStyle}>
-					Email address
+				<label htmlFor="auth-username" style={labelStyle}>
+					Username
 				</label>
 				<input
-					id="auth-email"
-					type="email"
-					value={email}
-					onChange={(e) => setEmail(e.target.value)}
+					id="auth-username"
+					value={username}
+					onChange={(e) => setUsername(e.target.value)}
 					required
-					autoComplete="email"
+					autoComplete="username"
 					style={inputStyle}
 				/>
 			</div>
@@ -90,8 +70,7 @@ export function AuthPanel({ onSignedIn }: { onSignedIn: () => void }) {
 					value={password}
 					onChange={(e) => setPassword(e.target.value)}
 					required
-					minLength={8}
-					autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'}
+					autoComplete="current-password"
 					style={inputStyle}
 				/>
 			</div>
@@ -118,26 +97,7 @@ export function AuthPanel({ onSignedIn }: { onSignedIn: () => void }) {
 					fontFamily: 'inherit',
 				}}
 			>
-				{busy ? 'Working…' : mode === 'sign-up' ? 'Create account' : 'Sign in'}
-			</button>
-
-			<button
-				type="button"
-				onClick={() => {
-					setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in')
-					setError(null)
-				}}
-				style={{
-					background: 'none',
-					border: 'none',
-					color: 'var(--text-2)',
-					fontSize: 13,
-					cursor: 'pointer',
-					fontFamily: 'inherit',
-					padding: 0,
-				}}
-			>
-				{mode === 'sign-in' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+				{busy ? 'Working…' : 'Sign in'}
 			</button>
 		</form>
 	)

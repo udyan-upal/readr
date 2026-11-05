@@ -27,3 +27,8 @@ logs/
 # Editors
 .vscode/
 .idea/
+
+# Cloudflare
+.open-next/
+.dev.vars
+.wrangler/

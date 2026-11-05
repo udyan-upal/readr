@@ -1,48 +1,51 @@
+import { bindings } from '@/lib/cf'
 import { getUserId, unauthorized } from '@/lib/require-user'
-import { createAdminClient } from '@/utils/supabase/admin'
 
 export const runtime = 'nodejs'
+
+interface SessionRow {
+	pdf_path: string
+	current_page: number
+	word_index: number
+	voice: string | null
+	rate: string | null
+}
 
 export async function GET(req: Request) {
 	const userId = await getUserId(req)
 	if (!userId) return unauthorized()
 
-	const supabase = createAdminClient()
+	const { BUCKET, DB } = bindings()
 
-	const [{ data: storageFiles, error }, { data: sessions }] = await Promise.all([
-		supabase.storage.from('pdfs').list(userId, { sortBy: { column: 'created_at', order: 'desc' } }),
-		supabase
-			.from('reading_sessions')
-			.select('pdf_path, current_page, word_index, voice, rate, updated_at')
-			.eq('user_id', userId),
-	])
+	const objects = []
+	let cursor: string | undefined
+	do {
+		const page = await BUCKET.list({ prefix: `${userId}/`, cursor })
+		objects.push(...page.objects)
+		cursor = page.truncated ? page.cursor : undefined
+	} while (cursor)
+	objects.sort((a, b) => b.uploaded.getTime() - a.uploaded.getTime())
 
-	if (error) {
-		// biome-ignore lint/suspicious/noConsole: server diagnostic; adopt @boilerplate/logger in a follow-up
-		console.error('[list-pdfs] Supabase error:', error)
-		return Response.json({ error: error.message }, { status: 500 })
-	}
-
-	const sessionMap = Object.fromEntries((sessions ?? []).map((s) => [s.pdf_path as string, s]))
-
-	const files = await Promise.all(
-		(storageFiles ?? []).map(async (f) => {
-			const path = `${userId}/${f.name}`
-			const { data: urlData } = await supabase.storage.from('pdfs').createSignedUrl(path, 3600)
-			const displayName = f.name.replace(/^\d+-/, '')
-			const session = sessionMap[path]
-			return {
-				name: displayName,
-				path,
-				url: urlData?.signedUrl ?? '',
-				createdAt: f.created_at ?? '',
-				lastPage: (session?.current_page as number) ?? null,
-				wordIndex: (session?.word_index as number) ?? null,
-				voice: (session?.voice as string) ?? null,
-				rate: (session?.rate as string) ?? null,
-			}
-		}),
+	const { results: sessions } = await DB.prepare(
+		'SELECT pdf_path, current_page, word_index, voice, rate FROM reading_sessions WHERE user_id = ?',
 	)
+		.bind(userId)
+		.all<SessionRow>()
+	const sessionMap = new Map(sessions.map((s) => [s.pdf_path, s]))
+
+	const files = objects.map((o) => {
+		const session = sessionMap.get(o.key)
+		return {
+			name: o.key.slice(userId.length + 1).replace(/^\d+-/, ''),
+			path: o.key,
+			url: `/api/pdf?path=${encodeURIComponent(o.key)}`,
+			createdAt: o.uploaded.toISOString(),
+			lastPage: session?.current_page ?? null,
+			wordIndex: session?.word_index ?? null,
+			voice: session?.voice ?? null,
+			rate: session?.rate ?? null,
+		}
+	})
 
 	return Response.json({ files })
 }

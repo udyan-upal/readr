@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { alignBoundaries } from '@/lib/alignBoundaries'
+import { apiFetch } from '@/lib/api-fetch'
 import type { TtsResponse, Word, WordBoundary } from '@/types'
 
 interface PlayOptions {
@@ -46,7 +47,7 @@ function rateToPlaybackRate(rate: string): number {
 }
 
 async function fetchClip(opts: PlayOptions): Promise<FetchedClip> {
-	const res = await fetch('/api/tts', {
+	const res = await apiFetch('/api/tts', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ text: opts.text, voice: opts.voice, rate: '+0%' }),

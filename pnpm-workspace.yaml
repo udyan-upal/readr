@@ -15,6 +15,7 @@ allowBuilds:
   sharp: false
   # msedge-tts preinstall is only its own "only-allow pnpm" check; ships prebuilt JS
   msedge-tts: false
+  workerd: true
 
 # Suppress expected peer-range warnings (better-auth 1.7.2 peers better-sqlite3 ^12)
 peerDependencyRules:

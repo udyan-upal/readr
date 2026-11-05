@@ -1,5 +1,5 @@
+import { bindings } from '@/lib/cf'
 import { getUserId, unauthorized } from '@/lib/require-user'
-import { createAdminClient } from '@/utils/supabase/admin'
 
 export const runtime = 'nodejs'
 
@@ -11,15 +11,12 @@ export async function GET(req: Request) {
 	const path = searchParams.get('path')
 	if (!path) return Response.json({ session: null })
 
-	const supabase = createAdminClient()
-	const { data } = await supabase
-		.from('reading_sessions')
-		.select('*')
-		.eq('user_id', userId)
-		.eq('pdf_path', path)
-		.single()
+	const session = await bindings()
+		.DB.prepare('SELECT * FROM reading_sessions WHERE user_id = ? AND pdf_path = ?')
+		.bind(userId, path)
+		.first()
 
-	return Response.json({ session: data ?? null })
+	return Response.json({ session })
 }
 
 export async function POST(req: Request) {
@@ -35,20 +32,30 @@ export async function POST(req: Request) {
 		rate: string
 	}
 
-	const supabase = createAdminClient()
-	await supabase.from('reading_sessions').upsert(
-		{
-			user_id: userId,
-			pdf_path: body.path,
-			pdf_name: body.name,
-			current_page: body.page,
-			word_index: body.wordIndex,
-			voice: body.voice,
-			rate: body.rate,
-			updated_at: new Date().toISOString(),
-		},
-		{ onConflict: 'user_id,pdf_path' },
-	)
+	await bindings()
+		.DB.prepare(
+			`INSERT INTO reading_sessions
+				(user_id, pdf_path, pdf_name, current_page, word_index, voice, rate, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT (user_id, pdf_path) DO UPDATE SET
+				pdf_name = excluded.pdf_name,
+				current_page = excluded.current_page,
+				word_index = excluded.word_index,
+				voice = excluded.voice,
+				rate = excluded.rate,
+				updated_at = excluded.updated_at`,
+		)
+		.bind(
+			userId,
+			body.path,
+			body.name,
+			body.page,
+			body.wordIndex,
+			body.voice,
+			body.rate,
+			new Date().toISOString(),
+		)
+		.run()
 
 	return Response.json({ ok: true })
 }

@@ -558,6 +558,7 @@ function updateActiveTocItem() {
 // --- Read aloud ---
 
 const EDGE_TTS_API_URL = __EDGE_TTS_API_URL__;
+const EDGE_TTS_API_TOKEN = __EDGE_TTS_API_TOKEN__;
 const EDGE_TTS_ORIGIN = (() => {
   try {
     return new URL(EDGE_TTS_API_URL).origin;
@@ -588,7 +589,10 @@ async function fetchEdgeTtsClip(chunk, signal, voice) {
   const response = await fetch(EDGE_TTS_API_URL, {
     method: "POST",
     signal,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(EDGE_TTS_API_TOKEN ? { Authorization: `Bearer ${EDGE_TTS_API_TOKEN}` } : {}),
+    },
     body: JSON.stringify({
       text: chunk.text,
       voice,

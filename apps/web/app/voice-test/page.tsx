@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { apiFetch } from '@/lib/api-fetch'
 import type { Voice } from '@/types'
 
 const RATES = [
@@ -64,7 +65,7 @@ export default function VoiceTestPage() {
 
 		const t0 = Date.now()
 		try {
-			const res = await fetch('/api/tts', {
+			const res = await apiFetch('/api/tts', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ text, voice, rate }),

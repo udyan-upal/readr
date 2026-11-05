@@ -1,5 +1,5 @@
+import { bindings } from '@/lib/cf'
 import { getUserId, unauthorized } from '@/lib/require-user'
-import { createAdminClient } from '@/utils/supabase/admin'
 
 export const runtime = 'nodejs'
 
@@ -13,20 +13,10 @@ export async function POST(req: Request) {
 		return Response.json({ error: 'No file provided' }, { status: 400 })
 	}
 
-	const supabase = createAdminClient()
-
-	const ext = file.name.split('.').pop() ?? 'pdf'
-	const storagePath = `${userId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-	const buffer = await file.arrayBuffer()
-
-	const { data, error } = await supabase.storage.from('pdfs').upload(storagePath, buffer, {
-		contentType: `application/${ext}`,
-		upsert: false,
+	const path = `${userId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+	await bindings().BUCKET.put(path, await file.arrayBuffer(), {
+		httpMetadata: { contentType: 'application/pdf' },
 	})
 
-	if (error) {
-		return Response.json({ error: error.message }, { status: 500 })
-	}
-
-	return Response.json({ path: data.path })
+	return Response.json({ path })
 }

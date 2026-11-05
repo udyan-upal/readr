@@ -7,13 +7,16 @@
 		"dev": "next dev -p 3030",
 		"build": "next build",
 		"start": "next start -p 3030",
+		"cf:build": "opennextjs-cloudflare build",
+		"cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+		"cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
 		"typeCheck": "tsc --noEmit",
 		"lint": "biome check .",
 		"lint:fix": "biome check --fix .",
 		"clean": "rimraf .next"
 	},
 	"dependencies": {
-		"@supabase/supabase-js": "^2.103.3",
+		"@opennextjs/cloudflare": "^1.20.15",
 		"jose": "6.2.10",
 		"msedge-tts": "2.1.1",
 		"next": "15.5.15",
@@ -31,6 +34,7 @@
 		"postcss": "8.4.49",
 		"rimraf": "catalog:",
 		"tailwindcss": "3.4.14",
-		"typescript": "5.6.3"
+		"typescript": "5.6.3",
+		"wrangler": "^4.156.2"
 	}
 }

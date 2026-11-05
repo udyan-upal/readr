@@ -1,0 +1,5 @@
+# Local `wrangler dev` secrets. Copy to .dev.vars (gitignored) and fill in.
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=
+AUTH_SECRET=
+EXT_API_TOKEN=

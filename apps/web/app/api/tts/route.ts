@@ -1,5 +1,7 @@
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts'
 import { type NextRequest, NextResponse } from 'next/server'
+import { isWorkersRuntime, synthesizeOnWorkers } from '@/lib/edge-tts-worker'
+import { isAuthorized, unauthorized } from '@/lib/require-user'
 import type { WordBoundary } from '@/types'
 
 // msedge-tts needs Node WebSocket — not compatible with the edge runtime.
@@ -16,6 +18,8 @@ interface Body {
 const HNS_PER_MS = 10_000
 
 export async function POST(req: NextRequest) {
+	if (!(await isAuthorized(req))) return unauthorized()
+
 	let body: Body
 	try {
 		body = await req.json()
@@ -29,6 +33,18 @@ export async function POST(req: NextRequest) {
 	}
 	if (!voice) {
 		return NextResponse.json({ error: 'voice is required' }, { status: 400 })
+	}
+
+	// msedge-tts cannot open its socket on Cloudflare Workers; use the native WebSocket path there.
+	if (isWorkersRuntime()) {
+		try {
+			return NextResponse.json(await synthesizeOnWorkers(text, voice, rate ?? '+0%'))
+		} catch (err) {
+			return NextResponse.json(
+				{ error: `Synthesis failed: ${(err as Error).message}` },
+				{ status: 500 },
+			)
+		}
 	}
 
 	const tts = new MsEdgeTTS()

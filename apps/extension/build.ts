@@ -35,6 +35,9 @@ async function build() {
   const edgeTtsUrl = process.env.EDGE_TTS_API_URL ?? "http://localhost:3030/api/tts";
   if (!process.env.EDGE_TTS_API_URL) console.warn("Warning: EDGE_TTS_API_URL not set in .env.local, using default");
 
+  const edgeTtsToken = process.env.EDGE_TTS_API_TOKEN ?? "";
+  if (!edgeTtsToken) console.warn("Warning: EDGE_TTS_API_TOKEN not set; a deployed /api/tts will reject read-aloud requests");
+
   const results = await Bun.build({
     entrypoints: [
       "src/content/extractor.js",
@@ -51,6 +54,7 @@ async function build() {
       __OPENROUTER_MODEL__: JSON.stringify(openRouterModel),
       __NVIDIA_API_KEY__: JSON.stringify(nvidiaKey),
       __EDGE_TTS_API_URL__: JSON.stringify(edgeTtsUrl),
+      __EDGE_TTS_API_TOKEN__: JSON.stringify(edgeTtsToken),
     },
   });
 

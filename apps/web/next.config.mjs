@@ -1,5 +1,9 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { initOpenNextCloudflareForDev } from '@opennextjs/cloudflare'
+
+// Makes the D1/R2 bindings from wrangler.jsonc available under `next dev`.
+initOpenNextCloudflareForDev()
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
