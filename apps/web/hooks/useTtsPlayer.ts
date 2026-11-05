@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { alignBoundaries } from '@/lib/alignBoundaries'
 import { apiFetch } from '@/lib/api-fetch'
+import { TtsBuffer } from '@/lib/ttsBuffer'
+import { buildProgressiveChunks, type TtsChunk } from '@/lib/ttsChunks'
 import type { TtsResponse, Word, WordBoundary } from '@/types'
 
 interface PlayOptions {
@@ -11,18 +13,25 @@ interface PlayOptions {
 	rate: string
 	words: Word[]
 	startWordIndex?: number
-	onActivated?: () => void // fired when this clip starts (gapless swap only)
+	onActivated?: () => void
 }
 
-interface FetchedClip {
-	blob: Blob
+interface Clip {
+	url: string
+	audio: HTMLAudioElement
 	boundaries: WordBoundary[]
 }
 
-interface QueuedClip {
+interface QueuedPage {
 	key: string
-	clip: FetchedClip
 	opts: PlayOptions
+	chunks: TtsChunk[]
+	clip: Clip
+}
+
+interface ActiveChunk extends Clip {
+	chunk: TtsChunk
+	aligned: Word[]
 }
 
 interface State {
@@ -33,11 +42,11 @@ interface State {
 	error: string | null
 	alignedWords: Word[]
 	endedCount: number
-	gaplessEndedCount: number // subset of endedCount: fired when standby was ready (audio already playing)
+	gaplessEndedCount: number
 }
 
 function keyOf(o: PlayOptions): string {
-	return `${o.voice}|${o.startWordIndex ?? 0}|${o.text.length}|${o.text.slice(0, 64)}|${o.text.slice(-64)}`
+	return `${o.voice}|${o.startWordIndex ?? 0}|${o.words.length}|${o.text.length}|${o.text.slice(0, 48)}|${o.text.slice(-48)}`
 }
 
 function rateToPlaybackRate(rate: string): number {
@@ -46,50 +55,44 @@ function rateToPlaybackRate(rate: string): number {
 	return Math.max(0.25, Math.min(4, 1 + percent / 100))
 }
 
-async function fetchClip(opts: PlayOptions): Promise<FetchedClip> {
-	const res = await apiFetch('/api/tts', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ text: opts.text, voice: opts.voice, rate: '+0%' }),
-	})
-	if (!res.ok) {
-		const data = (await res.json().catch(() => ({}))) as { error?: string }
-		throw new Error(data.error ?? `HTTP ${res.status}`)
+function releaseClip(clip: Clip | null): void {
+	if (!clip) return
+	clip.audio.pause()
+	clip.audio.removeAttribute('src')
+	clip.audio.load()
+	URL.revokeObjectURL(clip.url)
+}
+
+function wordIndexAt(aligned: Word[], chunk: TtsChunk, ms: number): number {
+	let local = 0
+	for (let i = 0; i < aligned.length; i++) {
+		const off = aligned[i].offsetMs
+		if (off === undefined) continue
+		if (off <= ms) local = i
+		else break
 	}
-	const data = (await res.json()) as TtsResponse
-	const bin = atob(data.audio)
-	const bytes = new Uint8Array(bin.length)
-	for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-	return { blob: new Blob([bytes], { type: 'audio/mpeg' }), boundaries: data.boundaries }
+	return Math.min(chunk.wordEnd, chunk.wordStart + local)
 }
 
-function buildAligned(opts: PlayOptions, clip: FetchedClip): Word[] {
-	const si = Math.max(0, Math.min(opts.startWordIndex ?? 0, Math.max(0, opts.words.length - 1)))
-	const leading = opts.words.slice(0, si).map((w) => ({ ...w }))
-	const tail = alignBoundaries(opts.words.slice(si), clip.boundaries)
-	return leading.length ? [...leading, ...tail] : tail
-}
-
+/**
+ * Chunked TTS playback. Mirrors the extension reader: progressive clips
+ * (100 → 500 → 1000 → 1500 chars), two fetches in flight, and the next page's
+ * first clip prefetched into a standby clip for gapless page changes.
+ */
 export function useTtsPlayer() {
-	// ── Two audio elements for gapless ping-pong ──────────────────────────────
-	// audios[0] and audios[1] alternate. While one plays, the other is preloaded.
-	// On 'ended', we swap instantly — no React cycle, no perceivable gap.
-	const audiosRef = useRef<[HTMLAudioElement, HTMLAudioElement] | null>(null)
-	const activeIdxRef = useRef(0) // which element is currently playing (0 or 1)
-
-	// Object URLs for each slot (we revoke when swapping)
-	const urlsRef = useRef<[string | null, string | null]>([null, null])
-
-	// Current playback metadata (refs = safe to read from event handlers)
-	const boundariesRef = useRef<WordBoundary[]>([])
-	const wordsRef = useRef<Word[]>([])
-	const lastReqRef = useRef<PlayOptions | null>(null)
+	const sessionRef = useRef(0)
 	const playbackRateRef = useRef(1)
 
-	// Prefetch state
-	const inFlightKeyRef = useRef<string | null>(null)
-	// Next clip: fetched + pre-loaded into the standby audio element
-	const queuedRef = useRef<QueuedClip | null>(null)
+	const optsRef = useRef<PlayOptions | null>(null)
+	const chunksRef = useRef<TtsChunk[]>([])
+	const chunkIndexRef = useRef(0)
+	const bufferRef = useRef<TtsBuffer<Clip> | null>(null)
+	const activeRef = useRef<ActiveChunk | null>(null)
+	const queuedPageRef = useRef<QueuedPage | null>(null)
+	const prefetchingRef = useRef<{ key: string; controller: AbortController } | null>(null)
+	const lastReqRef = useRef<PlayOptions | null>(null)
+	const advanceRef = useRef<() => Promise<void>>(async () => {})
+	const playRef = useRef<(opts: PlayOptions) => Promise<void>>(async () => {})
 
 	const [state, setState] = useState<State>({
 		isPlaying: false,
@@ -102,256 +105,317 @@ export function useTtsPlayer() {
 		gaplessEndedCount: 0,
 	})
 
-	const initAudios = useCallback((): [HTMLAudioElement, HTMLAudioElement] => {
-		if (!audiosRef.current) {
-			const a0 = new Audio()
-			const a1 = new Audio()
-			a0.preload = a1.preload = 'auto'
-			a0.playbackRate = a1.playbackRate = playbackRateRef.current
-			audiosRef.current = [a0, a1]
-		}
-		return audiosRef.current
-	}, [])
-
-	const setPlaybackRate = useCallback((rate: string) => {
-		const next = rateToPlaybackRate(rate)
-		playbackRateRef.current = next
-		if (!audiosRef.current) return
-		for (const audio of audiosRef.current) audio.playbackRate = next
-	}, [])
-
-	const revokeSlot = useCallback((idx: 0 | 1) => {
-		const u = urlsRef.current[idx]
-		if (u) {
-			URL.revokeObjectURL(u)
-			urlsRef.current[idx] = null
-		}
-	}, [])
-
-	const stop = useCallback(() => {
-		const [a0, a1] = initAudios()
-		a0.pause()
-		a0.currentTime = 0
-		a0.src = ''
-		a1.pause()
-		a1.currentTime = 0
-		a1.src = ''
-		revokeSlot(0)
-		revokeSlot(1)
-		queuedRef.current = null
-		inFlightKeyRef.current = null
-		setState((s) => ({
-			...s,
-			isPlaying: false,
-			currentWordIndex: -1,
-			progress: 0,
-			alignedWords: [],
-		}))
-	}, [initAudios, revokeSlot])
-
-	const pause = useCallback(() => {
-		initAudios()[activeIdxRef.current].pause()
-	}, [initAudios])
-
-	const resume = useCallback(() => {
-		initAudios()
-			[activeIdxRef.current].play()
-			.catch(() => {})
-	}, [initAudios])
-
-	// Activate the queued clip by swapping to the standby element.
-	// Called from the 'ended' event handler — no React effect cycle.
-	const activateQueuedFn = useCallback(
-		(queued: QueuedClip) => {
-			queuedRef.current = null
-			const prevIdx = activeIdxRef.current as 0 | 1
-			const newIdx = (prevIdx ^ 1) as 0 | 1
-			activeIdxRef.current = newIdx
-
-			// Silence and free the old slot
-			const [a0, a1] = initAudios()
-			const old = prevIdx === 0 ? a0 : a1
-			old.pause()
-			old.src = ''
-			revokeSlot(prevIdx)
-
-			// The standby slot already has the URL set + is buffered (from prefetch)
-			const aligned = buildAligned(queued.opts, queued.clip)
-			boundariesRef.current = queued.clip.boundaries
-			wordsRef.current = aligned
-
-			// Notify caller that this clip was activated (lets page.tsx update chunk tracking)
-			queued.opts.onActivated?.()
-
-			const si = queued.opts.startWordIndex ?? 0
-			setState((s) => ({
-				...s,
-				isLoading: false,
-				currentWordIndex: si > 0 ? si - 1 : -1,
-				progress: 0,
-				error: null,
-				alignedWords: aligned,
-				// Signal page.tsx that the previous clip ended and a new one started gaplessly.
-				// gaplessEndedCount lets page.tsx advance page state without re-calling tts.play.
-				endedCount: s.endedCount + 1,
-				gaplessEndedCount: s.gaplessEndedCount + 1,
-			}))
-
-			const newActive = newIdx === 0 ? a0 : a1
-			newActive.playbackRate = playbackRateRef.current
-			newActive.play().catch((err: Error) => {
-				setState((s) => ({ ...s, isPlaying: false, error: err.message }))
+	const fetchClip = useCallback(
+		async (chunk: TtsChunk, voice: string, signal?: AbortSignal): Promise<Clip> => {
+			const res = await apiFetch('/api/tts', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ text: chunk.text, voice, rate: '+0%' }),
+				signal,
 			})
+			if (!res.ok) {
+				const data = (await res.json().catch(() => ({}))) as { error?: string }
+				throw new Error(data.error ?? `HTTP ${res.status}`)
+			}
+			const data = (await res.json()) as TtsResponse
+			signal?.throwIfAborted()
+
+			const bin = atob(data.audio)
+			const bytes = new Uint8Array(bin.length)
+			for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+			const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }))
+
+			const audio = new Audio()
+			audio.preload = 'auto'
+			audio.src = url
+			audio.playbackRate = playbackRateRef.current
+			audio.load()
+			return { url, audio, boundaries: Array.isArray(data.boundaries) ? data.boundaries : [] }
 		},
-		[initAudios, revokeSlot],
+		[],
 	)
 
-	// Keep a stable ref so the static useEffect below can call it without going stale
-	const activateQueuedRef = useRef(activateQueuedFn)
-	useEffect(() => {
-		activateQueuedRef.current = activateQueuedFn
-	}, [activateQueuedFn])
+	const releaseActive = useCallback(() => {
+		const active = activeRef.current
+		if (!active) return
+		active.audio.onended = null
+		active.audio.ontimeupdate = null
+		active.audio.onerror = null
+		active.audio.onplay = null
+		active.audio.onpause = null
+		releaseClip(active)
+		activeRef.current = null
+	}, [])
 
-	// Attach all audio event listeners once (reads from refs only — no stale closures)
-	useEffect(() => {
-		const [a0, a1] = initAudios()
+	const releaseQueued = useCallback(() => {
+		const queued = queuedPageRef.current
+		queuedPageRef.current = null
+		if (queued) releaseClip(queued.clip)
+	}, [])
 
-		const onTime = (e: Event) => {
-			const [aa0, aa1] = audiosRef.current!
-			const active = activeIdxRef.current === 0 ? aa0 : aa1
-			if (e.target !== active) return
-			const ms = active.currentTime * 1000
-			const words = wordsRef.current
-			let idx = -1
-			for (let i = 0; i < words.length; i++) {
-				const off = words[i].offsetMs
-				if (off === undefined) continue
-				if (off <= ms) idx = i
-				else break
-			}
-			const dur = active.duration || 0
-			setState((s) => ({
-				...s,
-				currentWordIndex: idx,
-				progress: dur > 0 ? active.currentTime / dur : 0,
-			}))
-		}
+	const closeBuffer = useCallback(() => {
+		bufferRef.current?.close()
+		bufferRef.current = null
+	}, [])
 
-		const onPlay = (e: Event) => {
-			const [aa0, aa1] = audiosRef.current!
-			if (e.target === (activeIdxRef.current === 0 ? aa0 : aa1)) {
-				setState((s) => ({ ...s, isPlaying: true }))
-			}
-		}
+	const progressAt = useCallback((wordIndex: number): number => {
+		const opts = optsRef.current
+		if (!opts) return 0
+		const start = opts.startWordIndex ?? 0
+		const total = Math.max(1, opts.words.length - 1 - start)
+		return Math.min(1, Math.max(0, (wordIndex - start) / total))
+	}, [])
 
-		const onPause = (e: Event) => {
-			const [aa0, aa1] = audiosRef.current!
-			if (e.target === (activeIdxRef.current === 0 ? aa0 : aa1)) {
-				setState((s) => ({ ...s, isPlaying: false }))
-			}
-		}
-
-		const onEnded = (e: Event) => {
-			const [aa0, aa1] = audiosRef.current!
-			if (e.target !== (activeIdxRef.current === 0 ? aa0 : aa1)) return
-
-			const queued = queuedRef.current
-			if (queued) {
-				// Gapless swap — standby is already buffered, play starts in <1ms
-				activateQueuedRef.current(queued)
+	const activateChunk = useCallback(
+		(clip: Clip, index: number) => {
+			const opts = optsRef.current
+			const chunk = chunksRef.current[index]
+			if (!opts || !chunk) {
+				releaseClip(clip)
 				return
 			}
 
-			// No queued clip → signal page.tsx to handle next chunk/page
-			setState((s) => ({ ...s, isPlaying: false, progress: 1, endedCount: s.endedCount + 1 }))
-		}
+			chunkIndexRef.current = index
+			const aligned = alignBoundaries(
+				opts.words.slice(chunk.wordStart, chunk.wordEnd + 1),
+				clip.boundaries,
+			)
+			const session = sessionRef.current
+			activeRef.current = { ...clip, chunk, aligned }
 
-		for (const a of [a0, a1]) {
-			a.addEventListener('timeupdate', onTime)
-			a.addEventListener('play', onPlay)
-			a.addEventListener('pause', onPause)
-			a.addEventListener('ended', onEnded)
-		}
-		return () => {
-			for (const a of [a0, a1]) {
-				a.removeEventListener('timeupdate', onTime)
-				a.removeEventListener('play', onPlay)
-				a.removeEventListener('pause', onPause)
-				a.removeEventListener('ended', onEnded)
+			const audio = clip.audio
+			audio.playbackRate = playbackRateRef.current
+
+			audio.onplay = () => {
+				if (session !== sessionRef.current) return
+				setState((s) => (s.isPlaying ? s : { ...s, isPlaying: true }))
 			}
-		}
-	}, [initAudios]) // stable — reads state only via refs
 
-	const startWithClip = useCallback(
-		async (opts: PlayOptions, clip: FetchedClip) => {
-			const idx = activeIdxRef.current as 0 | 1
-			const [a0, a1] = initAudios()
-			const active = idx === 0 ? a0 : a1
-			active.pause()
-			revokeSlot(idx)
+			audio.onpause = () => {
+				if (session !== sessionRef.current) return
+				setState((s) => (s.isPlaying ? { ...s, isPlaying: false } : s))
+			}
 
-			const url = URL.createObjectURL(clip.blob)
-			urlsRef.current[idx] = url
-			active.src = url
-			active.playbackRate = playbackRateRef.current
+			audio.ontimeupdate = () => {
+				if (session !== sessionRef.current) return
+				const idx = wordIndexAt(aligned, chunk, audio.currentTime * 1000)
+				setState((s) =>
+					s.currentWordIndex === idx
+						? s
+						: { ...s, currentWordIndex: idx, progress: progressAt(idx) },
+				)
+			}
 
-			const aligned = buildAligned(opts, clip)
-			boundariesRef.current = clip.boundaries
-			wordsRef.current = aligned
+			audio.onended = () => {
+				if (session !== sessionRef.current) return
+				audio.ontimeupdate = null
+				audio.onended = null
+				void advanceRef.current()
+			}
 
-			const si = opts.startWordIndex ?? 0
+			audio.onerror = () => {
+				if (session !== sessionRef.current) return
+				closeBuffer()
+				releaseActive()
+				setState((s) => ({
+					...s,
+					isPlaying: false,
+					isLoading: false,
+					error: 'Could not play Edge TTS audio.',
+				}))
+			}
+
 			setState((s) => ({
 				...s,
 				isLoading: false,
-				currentWordIndex: si > 0 ? si - 1 : -1,
-				progress: 0,
-				error: null,
-				alignedWords: aligned,
-			}))
-
-			try {
-				await active.play()
-			} catch (err) {
-				setState((s) => ({ ...s, isPlaying: false, error: (err as Error).message }))
-			}
-		},
-		[initAudios, revokeSlot],
-	)
-
-	const play = useCallback(
-		async (opts: PlayOptions) => {
-			lastReqRef.current = opts
-			const k = keyOf(opts)
-
-			// Hot path: standby is already loaded with this clip → gapless activate
-			if (queuedRef.current?.key === k) {
-				activateQueuedFn(queuedRef.current)
-				return
-			}
-
-			// Discard stale queued clip
-			if (queuedRef.current) {
-				const [a0, a1] = initAudios()
-				const standby = activeIdxRef.current === 0 ? a1 : a0
-				standby.src = ''
-				revokeSlot((activeIdxRef.current ^ 1) as 0 | 1)
-				queuedRef.current = null
-			}
-
-			setState((s) => ({
-				...s,
-				isLoading: true,
 				isPlaying: false,
-				currentWordIndex: -1,
-				progress: 0,
+				currentWordIndex: chunk.wordStart,
+				progress: progressAt(chunk.wordStart),
 				error: null,
 				alignedWords: opts.words,
 			}))
 
+			audio.play().catch((err: Error) => {
+				if (session !== sessionRef.current) return
+				setState((s) => ({ ...s, isPlaying: false, error: err.message }))
+			})
+		},
+		[closeBuffer, progressAt, releaseActive],
+	)
+
+	const startQueuedPage = useCallback(
+		(queued: QueuedPage) => {
+			releaseActive()
+			closeBuffer()
+
+			optsRef.current = queued.opts
+			chunksRef.current = queued.chunks
+			chunkIndexRef.current = 0
+			queued.opts.onActivated?.()
+
+			const buffer = new TtsBuffer<Clip>(
+				queued.chunks,
+				(chunk, signal) => fetchClip(chunk, queued.opts.voice, signal),
+				releaseClip,
+			)
+			bufferRef.current = buffer
+			buffer.fill(1)
+
+			activateChunk(queued.clip, 0)
+		},
+		[activateChunk, closeBuffer, fetchClip, releaseActive],
+	)
+
+	const advance = useCallback(async () => {
+		const session = sessionRef.current
+		const opts = optsRef.current
+		if (!opts) return
+
+		const nextIndex = chunkIndexRef.current + 1
+		if (nextIndex < chunksRef.current.length) {
 			try {
-				const clip = await fetchClip(opts)
-				await startWithClip(opts, clip)
+				const clip = await bufferRef.current?.take(nextIndex)
+				if (session !== sessionRef.current) {
+					releaseClip(clip ?? null)
+					return
+				}
+				if (!clip) return
+				releaseActive()
+				activateChunk(clip, nextIndex)
 			} catch (err) {
+				if (session !== sessionRef.current) return
+				closeBuffer()
+				releaseActive()
+				setState((s) => ({
+					...s,
+					isPlaying: false,
+					isLoading: false,
+					error: (err as Error).message,
+				}))
+			}
+			return
+		}
+
+		// Page finished. If the next page's first clip is ready, swap gaplessly;
+		// otherwise let the page layer ask for the next page.
+		const queued = queuedPageRef.current
+		if (queued && queued.opts.voice === opts.voice) {
+			queuedPageRef.current = null
+			setState((s) => ({
+				...s,
+				isPlaying: false,
+				progress: 1,
+				endedCount: s.endedCount + 1,
+				gaplessEndedCount: s.gaplessEndedCount + 1,
+			}))
+			startQueuedPage(queued)
+			return
+		}
+
+		setState((s) => ({ ...s, isPlaying: false, progress: 1, endedCount: s.endedCount + 1 }))
+	}, [activateChunk, closeBuffer, releaseActive, startQueuedPage])
+
+	useEffect(() => {
+		advanceRef.current = advance
+	}, [advance])
+
+	const stop = useCallback(() => {
+		sessionRef.current++
+		prefetchingRef.current?.controller.abort()
+		prefetchingRef.current = null
+		closeBuffer()
+		releaseActive()
+		releaseQueued()
+		optsRef.current = null
+		chunksRef.current = []
+		chunkIndexRef.current = 0
+		setState((s) => ({
+			...s,
+			isPlaying: false,
+			isLoading: false,
+			currentWordIndex: -1,
+			progress: 0,
+			alignedWords: [],
+		}))
+	}, [closeBuffer, releaseActive, releaseQueued])
+
+	const pause = useCallback(() => {
+		activeRef.current?.audio.pause()
+	}, [])
+
+	const resume = useCallback(() => {
+		const audio = activeRef.current?.audio
+		if (audio) {
+			void audio.play().catch(() => {})
+			return
+		}
+		if (lastReqRef.current) {
+			const opts = lastReqRef.current
+			const start = Math.max(0, state.currentWordIndex)
+			void (start > 0 ? playRef.current({ ...opts, startWordIndex: start }) : playRef.current(opts))
+		}
+	}, [state.currentWordIndex])
+
+	const play = useCallback(
+		async (opts: PlayOptions) => {
+			lastReqRef.current = opts
+			const session = ++sessionRef.current
+			prefetchingRef.current?.controller.abort()
+			prefetchingRef.current = null
+			closeBuffer()
+			releaseActive()
+
+			const key = keyOf(opts)
+			const chunks = buildProgressiveChunks(opts.words, opts.startWordIndex ?? 0)
+			if (!chunks.length) {
+				setState((s) => ({ ...s, isLoading: false, isPlaying: false }))
+				return
+			}
+
+			optsRef.current = opts
+			chunksRef.current = chunks
+			chunkIndexRef.current = 0
+
+			const buffer = new TtsBuffer<Clip>(
+				chunks,
+				(chunk, signal) => fetchClip(chunk, opts.voice, signal),
+				releaseClip,
+			)
+			bufferRef.current = buffer
+
+			let first: Clip | null = null
+			const queued = queuedPageRef.current
+			if (queued?.key === key) {
+				queuedPageRef.current = null
+				first = queued.clip
+				buffer.fill(1)
+			}
+
+			setState((s) => ({
+				...s,
+				isLoading: first === null,
+				isPlaying: false,
+				currentWordIndex: -1,
+				progress: 0,
+				error: null,
+				alignedWords: [],
+			}))
+
+			try {
+				if (!first) {
+					// Warm the buffer before awaiting so clip 2 starts fetching in parallel.
+					buffer.fill(0)
+					first = await buffer.take(0)
+				}
+				if (session !== sessionRef.current) {
+					releaseClip(first)
+					return
+				}
+				if (!first) return
+				activateChunk(first, 0)
+			} catch (err) {
+				if (session !== sessionRef.current) return
+				closeBuffer()
 				setState((s) => ({
 					...s,
 					isLoading: false,
@@ -360,48 +424,59 @@ export function useTtsPlayer() {
 				}))
 			}
 		},
-		[activateQueuedFn, initAudios, revokeSlot, startWithClip],
+		[activateChunk, closeBuffer, fetchClip, releaseActive],
 	)
 
-	// Prefetch: fetch + pre-load into standby element so swap is instant
+	useEffect(() => {
+		playRef.current = play
+	}, [play])
+
+	/** Fetch only the next page's tiny first clip; playback starts instantly on swap. */
 	const prefetch = useCallback(
 		async (opts: PlayOptions) => {
-			const k = keyOf(opts)
-			if (queuedRef.current?.key === k) return
-			if (inFlightKeyRef.current === k) return
-			inFlightKeyRef.current = k
+			const key = keyOf(opts)
+			if (queuedPageRef.current?.key === key) return
+			if (prefetchingRef.current?.key === key) return
+
+			const chunks = buildProgressiveChunks(opts.words, 0)
+			if (!chunks.length) return
+
+			prefetchingRef.current?.controller.abort()
+			const controller = new AbortController()
+			prefetchingRef.current = { key, controller }
 
 			try {
-				const clip = await fetchClip(opts)
-				if (inFlightKeyRef.current !== k) return
-
-				// Pre-load into standby element
-				const [a0, a1] = initAudios()
-				const standbyIdx = (activeIdxRef.current ^ 1) as 0 | 1
-				const standby = standbyIdx === 0 ? a0 : a1
-
-				revokeSlot(standbyIdx)
-				const url = URL.createObjectURL(clip.blob)
-				urlsRef.current[standbyIdx] = url
-				standby.src = url
-				standby.playbackRate = playbackRateRef.current
-				standby.load() // start buffering now
-
-				queuedRef.current = { key: k, clip, opts }
+				const clip = await fetchClip(chunks[0], opts.voice, controller.signal)
+				if (prefetchingRef.current?.controller !== controller) {
+					releaseClip(clip)
+					return
+				}
+				prefetchingRef.current = null
+				releaseQueued()
+				queuedPageRef.current = { key, opts, chunks, clip }
 			} catch {
-				// prefetch failure is silent
-			} finally {
-				if (inFlightKeyRef.current === k) inFlightKeyRef.current = null
+				if (prefetchingRef.current?.controller === controller) prefetchingRef.current = null
 			}
 		},
-		[initAudios, revokeSlot],
+		[fetchClip, releaseQueued],
 	)
 
 	const updateWords = useCallback((words: Word[]) => {
-		if (!boundariesRef.current.length) return
-		const aligned = alignBoundaries(words, boundariesRef.current)
-		wordsRef.current = aligned
-		setState((s) => ({ ...s, alignedWords: aligned }))
+		const opts = optsRef.current
+		const active = activeRef.current
+		if (!opts || !active) return
+		optsRef.current = { ...opts, words }
+		active.aligned = alignBoundaries(
+			words.slice(active.chunk.wordStart, active.chunk.wordEnd + 1),
+			active.boundaries,
+		)
+		setState((s) => ({ ...s, alignedWords: words }))
+	}, [])
+
+	const setPlaybackRate = useCallback((rate: string) => {
+		const next = rateToPlaybackRate(rate)
+		playbackRateRef.current = next
+		if (activeRef.current) activeRef.current.audio.playbackRate = next
 	}, [])
 
 	const retry = useCallback(() => {
@@ -410,14 +485,26 @@ export function useTtsPlayer() {
 
 	useEffect(
 		() => () => {
-			const [a0, a1] = initAudios()
-			a0.pause()
-			a1.pause()
-			revokeSlot(0)
-			revokeSlot(1)
+			sessionRef.current++
+			prefetchingRef.current?.controller.abort()
+			bufferRef.current?.close()
+			const active = activeRef.current
+			if (active) releaseClip(active)
+			const queued = queuedPageRef.current
+			if (queued) releaseClip(queued.clip)
 		},
-		[initAudios, revokeSlot],
+		[],
 	)
 
-	return { ...state, play, prefetch, updateWords, pause, resume, stop, retry, setPlaybackRate }
+	return {
+		...state,
+		play,
+		prefetch,
+		updateWords,
+		pause,
+		resume,
+		stop,
+		retry,
+		setPlaybackRate,
+	}
 }

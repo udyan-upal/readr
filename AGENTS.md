@@ -89,9 +89,16 @@ requests fail at runtime.
 ### Data flow
 
 1. User uploads/opens a PDF → `PdfViewer` renders pages to canvas via PDF.js and extracts `Word[]` with pixel positions per page.
-2. Play is triggered → `useTtsPlayer` calls `POST /api/tts` with the page text, voice, and rate. The API returns `{ audio: base64, boundaries: WordBoundary[] }`. `lib/alignBoundaries.ts` maps TTS boundaries onto the extracted `Word[]` (TTS tokens ≠ whitespace-split words — normalization + two-pointer walk).
+2. Play is triggered → `useTtsPlayer` splits the page's words into progressive clips
+   (`lib/ttsChunks.ts`, 100 → 500 → 1000 → 1500 chars, same strategy as the extension) and
+   calls `POST /api/tts` per clip. `lib/ttsBuffer.ts` keeps the current clip plus two ahead,
+   with at most two fetches in flight, so audio starts after the first short clip instead of
+   the whole page. `lib/alignBoundaries.ts` maps TTS boundaries onto the extracted `Word[]`
+   (TTS tokens ≠ whitespace-split words — normalization + two-pointer walk).
 3. Audio plays; `timeupdate` fires → `currentWordIndex` is derived from `audio.currentTime` vs boundary offsets → the corresponding word span is highlighted and scrolled into view in `PdfViewer`.
-4. At ~60% of a page, the next page is prefetched (gapless playback ping-pong via two `<audio>` elements in `useTtsPlayer`).
+4. At ~60% of a page, `useTtsPlayer.prefetch` fetches the next page's first (tiny) clip and
+   preloads its `<audio>` element. On the last chunk's end it swaps to that clip gaplessly;
+   otherwise the page layer calls `play` for the next page.
 
 ### Key files
 
@@ -101,7 +108,9 @@ requests fail at runtime.
 | `components/PdfViewer.tsx` | PDF.js rendering + text layer + word highlight overlay + per-line note editor (popover uses `position: fixed` computed from `getBoundingClientRect`) |
 | `components/NotesPanel.tsx` | Right-side panel listing all notes across all pages; navigate-to-page + flash highlight |
 | `components/PdfOutline.tsx` | Table of contents sidebar |
-| `hooks/useTtsPlayer.ts` | All audio logic: blob URL lifecycle, gapless ping-pong, word index derivation |
+| `hooks/useTtsPlayer.ts` | All audio logic: progressive clip buffer, cross-page prefetch swap, word index derivation |
+| `lib/ttsChunks.ts` | Splits page words into 100 → 500 → 1000 → 1500 char clips |
+| `lib/ttsBuffer.ts` | Look-ahead buffer: current clip + two ahead, max two fetches in flight |
 | `lib/alignBoundaries.ts` | TTS boundary ↔ word array alignment |
 | `lib/voices.ts` | Static voice list (`VOICES`, `DEFAULT_VOICE`) |
 | `utils/supabase/admin.ts` | Service-role Supabase client (API routes only) |
