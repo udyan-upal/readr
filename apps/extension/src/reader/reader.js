@@ -558,6 +558,13 @@ function updateActiveTocItem() {
 // --- Read aloud ---
 
 const EDGE_TTS_API_URL = __EDGE_TTS_API_URL__;
+const EDGE_TTS_ORIGIN = (() => {
+  try {
+    return new URL(EDGE_TTS_API_URL).origin;
+  } catch {
+    return EDGE_TTS_API_URL;
+  }
+})();
 const EDGE_TTS_VOICES = {
   ava: "en-US-AvaNeural",
   chris: "en-US-ChristopherNeural",
@@ -996,7 +1003,7 @@ async function speakReadChunk(chunkIndex) {
     readAloudState.isLoading = false;
     readAloudState.isPlaying = false;
     readAloudState.isPaused = false;
-    readAloudState.error = `${err.message || "Edge TTS failed."} Make sure ebook-reader is running on localhost:3001.`;
+    readAloudState.error = `${err.message || "Edge TTS failed."} Make sure the Readr web app is running at ${EDGE_TTS_ORIGIN}.`;
     updateReadAloudUI();
   }
 }

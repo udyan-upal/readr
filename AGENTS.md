@@ -24,7 +24,7 @@ but its build still runs under Bun.
 
 ```bash
 pnpm install          # install all workspaces
-pnpm run dev          # auth (:3000) + readr (:3001) via concurrently
+pnpm run dev          # auth (:3000) + readr (:3030) via concurrently
 pnpm run build        # build:packages then build:apps
 pnpm run lint         # biome check across workspaces
 pnpm run typeCheck    # tsc --noEmit across workspaces
@@ -34,7 +34,7 @@ pnpm run test         # vitest (apps/auth)
 ### Web app
 
 ```bash
-pnpm --filter @readr/web run dev        # dev server on port 3001
+pnpm --filter @readr/web run dev        # dev server on port 3030
 pnpm --filter @readr/web run build      # production build
 pnpm --filter @readr/web run lint       # biome check
 pnpm --filter @readr/web run typeCheck  # tsc --noEmit

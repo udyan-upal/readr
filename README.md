@@ -25,7 +25,7 @@ npm run dev
 ```
 
 Set the Clerk and Supabase credentials in `.env.local`, then open
-[http://localhost:3001](http://localhost:3001).
+[http://localhost:3030](http://localhost:3030).
 
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
@@ -54,7 +54,7 @@ Configure `apps/extension/.env.local`:
 OPENROUTER_API_KEY=your-openrouter-api-key
 OPENROUTER_MODEL=openai/gpt-4o-mini
 NVIDIA_API_KEY=your-nvidia-api-key
-EDGE_TTS_API_URL=http://localhost:3001/api/tts
+EDGE_TTS_API_URL=http://localhost:3030/api/tts
 ```
 
 OpenRouter is the primary summaries/chat provider. NVIDIA is optional and acts as a fallback.

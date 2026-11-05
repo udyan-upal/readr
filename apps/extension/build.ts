@@ -32,7 +32,7 @@ async function build() {
     console.warn("Warning: NVIDIA_API_KEY not set; OpenRouter has no fallback");
   }
 
-  const edgeTtsUrl = process.env.EDGE_TTS_API_URL ?? "http://localhost:3001/api/tts";
+  const edgeTtsUrl = process.env.EDGE_TTS_API_URL ?? "http://localhost:3030/api/tts";
   if (!process.env.EDGE_TTS_API_URL) console.warn("Warning: EDGE_TTS_API_URL not set in .env.local, using default");
 
   const results = await Bun.build({
