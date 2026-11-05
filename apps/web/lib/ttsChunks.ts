@@ -8,9 +8,10 @@ export interface TtsChunk {
 
 /**
  * Progressive chunking, matching the extension reader: the first clip is tiny so
- * playback starts fast, then later clips grow to amortize synthesis requests.
+ * playback starts fast, and every clip stays short because the Worker has a tight
+ * CPU budget per request — small clips fail less and are cheap to retry.
  */
-const TARGETS = [100, 500, 1000, 1500]
+const TARGETS = [100, 250, 400]
 const SENTENCE_END = /[.!?]["'”’)\]]*$/
 
 export function buildProgressiveChunks(words: Word[], startIndex = 0): TtsChunk[] {

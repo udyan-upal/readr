@@ -75,8 +75,9 @@ function wordIndexAt(aligned: Word[], chunk: TtsChunk, ms: number): number {
 }
 
 /**
- * Chunked TTS playback. Mirrors the extension reader: progressive clips
- * (100 → 500 → 1000 → 1500 chars), two fetches in flight, and the next page's
+ * Chunked TTS playback. Mirrors the extension reader: short clips
+ * (100 → 250 → 400 chars), four clips buffered ahead with background retry,
+ * two fetches in flight, and the next page's
  * first clip prefetched into a standby clip for gapless page changes.
  */
 export function useTtsPlayer() {
@@ -107,15 +108,24 @@ export function useTtsPlayer() {
 
 	const fetchClip = useCallback(
 		async (chunk: TtsChunk, voice: string, signal?: AbortSignal): Promise<Clip> => {
-			const res = await apiFetch('/api/tts', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ text: chunk.text, voice, rate: '+0%' }),
-				signal,
-			})
+			let res: Response
+			try {
+				res = await apiFetch('/api/tts', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ text: chunk.text, voice, rate: '+0%' }),
+					signal,
+				})
+			} catch (err) {
+				// Network failure (not a cancel): worth retrying.
+				if (!signal?.aborted) Object.assign(err as Error, { retryable: true })
+				throw err
+			}
 			if (!res.ok) {
 				const data = (await res.json().catch(() => ({}))) as { error?: string }
-				throw new Error(data.error ?? `HTTP ${res.status}`)
+				throw Object.assign(new Error(data.error ?? `HTTP ${res.status}`), {
+					retryable: res.status >= 500 || res.status === 429,
+				})
 			}
 			const data = (await res.json()) as TtsResponse
 			signal?.throwIfAborted()

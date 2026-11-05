@@ -1,8 +1,28 @@
 import type { TtsChunk } from '@/lib/ttsChunks'
 
+const LOOKAHEAD = 4
+const RETRY_DELAYS_MS = [500, 1000, 2000, 4000]
+
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+	return new Promise((resolve, reject) => {
+		if (signal.aborted) return reject(signal.reason)
+		const timer = setTimeout(resolve, ms)
+		signal.addEventListener(
+			'abort',
+			() => {
+				clearTimeout(timer)
+				reject(signal.reason)
+			},
+			{ once: true },
+		)
+	})
+}
+
 /**
- * Bounded look-ahead buffer: current clip plus two ahead, at most two fetches
- * in flight. Ported from the extension reader (`tts-buffer.mjs`).
+ * Bounded look-ahead buffer: current clip plus four ahead, at most two fetches
+ * in flight. Errors flagged `retryable` (server overload, network) are retried
+ * with backoff in the background, so a flaky request is usually recovered
+ * before playback reaches it. Ported from the extension reader (`tts-buffer.mjs`).
  */
 export class TtsBuffer<T> {
 	private entries = new Map<
@@ -23,11 +43,24 @@ export class TtsBuffer<T> {
 		private chunks: TtsChunk[],
 		private fetchClip: (chunk: TtsChunk, signal: AbortSignal) => Promise<T>,
 		private releaseClip: (clip: T | null) => void,
+		private retryDelays: number[] = RETRY_DELAYS_MS,
 	) {}
+
+	private async fetchWithRetry(chunk: TtsChunk, signal: AbortSignal): Promise<T> {
+		for (let attempt = 0; ; attempt++) {
+			try {
+				return await this.fetchClip(chunk, signal)
+			} catch (error) {
+				const retryable = (error as { retryable?: boolean } | null)?.retryable
+				if (!retryable || signal.aborted || attempt >= this.retryDelays.length) throw error
+				await sleep(this.retryDelays[attempt], signal)
+			}
+		}
+	}
 
 	fill(index: number): void {
 		if (this.closed) return
-		for (let i = index; i <= index + 2 && i < this.chunks.length; i++) {
+		for (let i = index; i <= index + LOOKAHEAD && i < this.chunks.length; i++) {
 			if (this.entries.has(i)) continue
 			let resolve = () => {}
 			const promise = new Promise<void>((done) => {
@@ -48,7 +81,7 @@ export class TtsBuffer<T> {
 			Promise.resolve()
 				.then(() => {
 					if (this.closed) return null
-					return this.fetchClip(this.chunks[index], entry.controller.signal)
+					return this.fetchWithRetry(this.chunks[index], entry.controller.signal)
 				})
 				.then((clip) => {
 					if (this.closed) this.releaseClip(clip)

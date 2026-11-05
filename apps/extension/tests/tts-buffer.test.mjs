@@ -22,7 +22,7 @@ test('progressive chunks preserve all words, offsets and punctuation, including 
     });
   }
   const chunks = buildProgressiveChunks(words, text);
-  [100, 500, 1000, 1500].forEach((target, i) => {
+  [100, 250, 400, 400].forEach((target, i) => {
     assert.ok(chunks[i].text.length >= target * 0.7);
     assert.ok(chunks[i].text.length <= target + 20);
   });
@@ -32,7 +32,7 @@ test('progressive chunks preserve all words, offsets and punctuation, including 
 test('two concurrent requests, ordered consumption, bounded lookahead', async () => {
   const pending = new Map();
   const started = [];
-  const buffer = new TtsBuffer([0, 1, 2, 3, 4], (index) => {
+  const buffer = new TtsBuffer([0, 1, 2, 3, 4, 5, 6], (index) => {
     started.push(index);
     return new Promise(resolve => pending.set(index, resolve));
   }, () => {});
@@ -46,13 +46,60 @@ test('two concurrent requests, ordered consumption, bounded lookahead', async ()
   pending.get(0)({ id: 0 });
   assert.deepEqual(await first, { id: 0 });
   await tick();
-  assert.deepEqual(started, [0, 1, 2]);
+  assert.deepEqual(started, [0, 1, 2, 3, 4]);
+  pending.get(3)({ id: 3 });
+  pending.get(4)({ id: 4 });
+  await tick();
+  // Window is current + 4 ahead: nothing past index 4 until playback advances.
+  assert.deepEqual(started, [0, 1, 2, 3, 4]);
   assert.deepEqual(await buffer.take(1), { id: 1 });
   await tick();
-  assert.deepEqual(started, [0, 1, 2, 3]);
+  assert.deepEqual(started, [0, 1, 2, 3, 4, 5]);
   buffer.close();
-  pending.get(3)({ id: 3 });
+  pending.get(5)({ id: 5 });
   await tick();
+});
+
+test('retryable failures are retried in the background until they succeed', async () => {
+  const attempts = new Map();
+  const buffer = new TtsBuffer([0, 1], async index => {
+    const n = (attempts.get(index) ?? 0) + 1;
+    attempts.set(index, n);
+    if (n < 3) throw Object.assign(new Error('TTS failed (503)'), { retryable: true });
+    return { id: index };
+  }, () => {}, [0, 0, 0]);
+  assert.deepEqual(await buffer.take(0), { id: 0 });
+  assert.deepEqual(await buffer.take(1), { id: 1 });
+  assert.equal(attempts.get(0), 3);
+  assert.equal(attempts.get(1), 3);
+  buffer.close();
+});
+
+test('retries give up after the last delay; non-retryable errors fail at once', async () => {
+  let overloaded = 0, unauthorized = 0;
+  const buffer = new TtsBuffer([0, 1], async index => {
+    if (index === 0) { overloaded++; throw Object.assign(new Error('TTS failed (503)'), { retryable: true }); }
+    unauthorized++;
+    throw Object.assign(new Error('Unauthorized'), { retryable: false });
+  }, () => {}, [0, 0]);
+  await assert.rejects(buffer.take(0), /503/);
+  await assert.rejects(buffer.take(1), /Unauthorized/);
+  assert.equal(overloaded, 3);
+  assert.equal(unauthorized, 1);
+  buffer.close();
+});
+
+test('closing cancels a pending retry backoff', async () => {
+  let calls = 0;
+  const buffer = new TtsBuffer([0], async () => {
+    calls++;
+    throw Object.assign(new Error('TTS failed (503)'), { retryable: true });
+  }, () => {}, [60_000]);
+  const playback = buffer.take(0);
+  await tick();
+  buffer.close();
+  assert.equal(await playback, null);
+  assert.equal(calls, 1);
 });
 
 test('closing aborts pending requests, releases late clips and unblocks playback', async () => {

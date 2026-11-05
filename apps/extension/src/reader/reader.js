@@ -586,22 +586,33 @@ function base64ToAudioUrl(base64) {
 }
 
 async function fetchEdgeTtsClip(chunk, signal, voice) {
-  const response = await fetch(EDGE_TTS_API_URL, {
-    method: "POST",
-    signal,
-    headers: {
-      "Content-Type": "application/json",
-      ...(EDGE_TTS_API_TOKEN ? { Authorization: `Bearer ${EDGE_TTS_API_TOKEN}` } : {}),
-    },
-    body: JSON.stringify({
-      text: chunk.text,
-      voice,
-      // Keep audio and word boundaries on the normal-speed media timeline.
-      rate: "+0%",
-    }),
-  });
+  let response;
+  try {
+    response = await fetch(EDGE_TTS_API_URL, {
+      method: "POST",
+      signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(EDGE_TTS_API_TOKEN ? { Authorization: `Bearer ${EDGE_TTS_API_TOKEN}` } : {}),
+      },
+      body: JSON.stringify({
+        text: chunk.text,
+        voice,
+        // Keep audio and word boundaries on the normal-speed media timeline.
+        rate: "+0%",
+      }),
+    });
+  } catch (err) {
+    // Network failure (not a cancel): worth retrying.
+    if (!signal.aborted) err.retryable = true;
+    throw err;
+  }
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || `TTS failed (${response.status})`);
+  if (!response.ok) {
+    const err = new Error(data.error || `TTS failed (${response.status})`);
+    err.retryable = response.status >= 500 || response.status === 429;
+    throw err;
+  }
   if (!data.audio) throw new Error("TTS returned no audio.");
   signal.throwIfAborted();
   const url = base64ToAudioUrl(data.audio);

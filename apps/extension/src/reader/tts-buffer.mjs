@@ -1,6 +1,7 @@
-// Keep startup small, then amortize synthesis requests over longer clips.
+// Keep startup small and every clip short: the Worker has a tight CPU budget per request,
+// so small clips fail less and are cheap to retry while earlier ones play.
 export function buildProgressiveChunks(words, fullText, startIndex = 0) {
-  const targets = [100, 500, 1000, 1500];
+  const targets = [100, 250, 400];
   const chunks = [];
   let i = Math.max(0, startIndex);
   while (i < words.length) {
@@ -29,20 +30,45 @@ export function buildProgressiveChunks(words, fullText, startIndex = 0) {
   return chunks;
 }
 
-// A bounded window: current clip plus two ahead, with at most two fetches active.
+const LOOKAHEAD = 4;
+const RETRY_DELAYS_MS = [500, 1000, 2000, 4000];
+
+function sleep(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) return reject(signal.reason);
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener("abort", () => { clearTimeout(timer); reject(signal.reason); }, { once: true });
+  });
+}
+
+// A bounded window: current clip plus four ahead, with at most two fetches active.
+// Errors flagged `retryable` (server overload, network) are retried with backoff in the
+// background, so a flaky request is usually recovered before playback reaches it.
 export class TtsBuffer {
-  constructor(chunks, fetchClip, releaseClip) {
+  constructor(chunks, fetchClip, releaseClip, retryDelays = RETRY_DELAYS_MS) {
     this.chunks = chunks;
     this.fetchClip = fetchClip;
     this.releaseClip = releaseClip;
+    this.retryDelays = retryDelays;
     this.entries = new Map();
     this.active = 0;
     this.closed = false;
   }
 
+  async fetchWithRetry(chunk, signal) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.fetchClip(chunk, signal);
+      } catch (error) {
+        if (!error?.retryable || signal.aborted || attempt >= this.retryDelays.length) throw error;
+        await sleep(this.retryDelays[attempt], signal);
+      }
+    }
+  }
+
   fill(index) {
     if (this.closed) return;
-    for (let i = index; i <= index + 2 && i < this.chunks.length; i++) {
+    for (let i = index; i <= index + LOOKAHEAD && i < this.chunks.length; i++) {
       if (this.entries.has(i)) continue;
       let resolve;
       const promise = new Promise(done => { resolve = done; });
@@ -60,7 +86,7 @@ export class TtsBuffer {
       this.active++;
       Promise.resolve().then(() => {
         if (this.closed) return null;
-        return this.fetchClip(this.chunks[index], entry.controller.signal);
+        return this.fetchWithRetry(this.chunks[index], entry.controller.signal);
       }).then(clip => {
         if (this.closed) this.releaseClip(clip);
         else entry.clip = clip;
