@@ -7,6 +7,7 @@ interface Props {
 	items: OutlineItem[]
 	currentPage: number
 	onNavigate: (page: number) => void
+	onCollapse?: () => void
 }
 
 interface FlatEntry {
@@ -24,7 +25,7 @@ function flatten(items: OutlineItem[], prefix = ''): FlatEntry[] {
 	return out
 }
 
-export default function PdfOutline({ items, currentPage, onNavigate }: Props) {
+export default function PdfOutline({ items, currentPage, onNavigate, onCollapse }: Props) {
 	const flat = useMemo(() => flatten(items), [items])
 	const [activeKey, setActiveKey] = useState<string | null>(null)
 
@@ -70,15 +71,70 @@ export default function PdfOutline({ items, currentPage, onNavigate }: Props) {
 			<div
 				className="sticky top-0"
 				style={{
-					padding: '14px 18px 10px',
-					fontSize: 10,
-					fontWeight: 700,
-					letterSpacing: '0.12em',
-					textTransform: 'uppercase' as const,
-					color: 'var(--text-3)',
+					padding: '10px 10px 8px 18px',
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'space-between',
+					gap: 8,
 				}}
 			>
-				Sections
+				<span
+					style={{
+						fontSize: 10,
+						fontWeight: 700,
+						letterSpacing: '0.12em',
+						textTransform: 'uppercase',
+						color: 'var(--text-3)',
+					}}
+				>
+					Sections
+				</span>
+				{onCollapse && (
+					<button
+						type="button"
+						onClick={onCollapse}
+						aria-label="Hide sections"
+						title="Hide sections"
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							justifyContent: 'center',
+							width: 28,
+							height: 28,
+							padding: 0,
+							border: '1px solid var(--border)',
+							borderRadius: 999,
+							background: 'transparent',
+							color: 'var(--text-3)',
+							cursor: 'pointer',
+							transition: 'background 0.14s, color 0.14s, border-color 0.14s',
+						}}
+						onMouseEnter={(e) => {
+							e.currentTarget.style.background = 'var(--soft)'
+							e.currentTarget.style.color = 'var(--ink)'
+							e.currentTarget.style.borderColor = 'var(--accent)'
+						}}
+						onMouseLeave={(e) => {
+							e.currentTarget.style.background = 'transparent'
+							e.currentTarget.style.color = 'var(--text-3)'
+							e.currentTarget.style.borderColor = 'var(--border)'
+						}}
+					>
+						<svg
+							width="13"
+							height="13"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2.2"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							aria-hidden="true"
+						>
+							<path d="M15 18l-6-6 6-6" />
+						</svg>
+					</button>
+				)}
 			</div>
 			<ul style={{ fontSize: 13, padding: '0 8px 12px' }}>
 				{items.map((it, i) => (

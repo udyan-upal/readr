@@ -1054,13 +1054,12 @@ export default function Home() {
 						</svg>
 						Home
 					</button>
-					{outline.length > 0 && (
+					{outline.length > 0 && !outlineOpen && (
 						<button
 							type="button"
-							className={`btn-pill icon-only${outlineOpen ? ' active' : ''}`}
+							className="btn-pill"
 							onClick={() => setOutlineOpen((o) => !o)}
-							aria-label="Toggle contents"
-							title="Contents"
+							title="Show sections"
 						>
 							<svg
 								width="15"
@@ -1074,6 +1073,7 @@ export default function Home() {
 							>
 								<path d="M4 7h16M4 12h16M4 17h16" />
 							</svg>
+							Sections
 						</button>
 					)}
 				</div>
@@ -1174,7 +1174,12 @@ export default function Home() {
 
 			<div className="flex-1 min-h-0 flex">
 				{outlineOpen && outline.length > 0 && (
-					<PdfOutline items={outline} currentPage={currentPage} onNavigate={handlePageChange} />
+					<PdfOutline
+						items={outline}
+						currentPage={currentPage}
+						onNavigate={handlePageChange}
+						onCollapse={() => setOutlineOpen(false)}
+					/>
 				)}
 				<div className="flex-1 min-w-0">
 					<PdfViewer
