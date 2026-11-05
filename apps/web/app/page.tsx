@@ -113,6 +113,10 @@ export default function Home() {
 	const restoreWordIndexRef = useRef(0) // word index to start from after reload restore
 
 	const tts = useTtsPlayer()
+	const audioActive =
+		tts.isPlaying || tts.isLoading || (tts.alignedWords.length > 0 && tts.progress < 0.999)
+	const audioActiveRef = useRef(audioActive)
+	audioActiveRef.current = audioActive
 	const { setPlaybackRate } = tts
 	const pendingAutoPageRef = useRef<number | null>(null)
 	const handledEndedCountRef = useRef(0)
@@ -266,6 +270,20 @@ export default function Home() {
 			[p.pageNumber]: mergeCachedPage(prev[p.pageNumber], p),
 		}))
 	}, [])
+
+	// Scroll-driven page change. While narration is active the reading position stays
+	// pinned to the spoken page so the highlight never lands on the wrong words; the
+	// viewer shows a "Back to audio" action and resyncs once playback is idle.
+	const handleVisiblePageChange = useCallback(
+		(n: number) => {
+			if (tts.isPlaying || tts.isLoading || (tts.alignedWords.length > 0 && tts.progress < 0.999))
+				return
+			if (n === currentPage) return
+			setPageData(pageCache[n] ?? null)
+			setCurrentPage(n)
+		},
+		[currentPage, pageCache, tts],
+	)
 
 	const handleLoad = useCallback((n: number) => setNumPages(n), [])
 
@@ -1187,11 +1205,13 @@ export default function Home() {
 						currentPage={currentPage}
 						initialPage={initialPage}
 						onPageChange={handlePageChange}
+						onVisiblePageChange={handleVisiblePageChange}
 						onPageReady={handlePageReady}
 						onPrefetchPageReady={handlePrefetchPageReady}
 						onLoad={handleLoad}
 						onOutline={setOutline}
 						currentWordIndex={tts.currentWordIndex}
+						audioActive={audioActive}
 						noTextMessage={noTextMessage}
 						notes={currentPdfPath ? (notesByPage[currentPage] ?? []) : []}
 						highlightNoteId={highlightNoteId}

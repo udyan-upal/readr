@@ -1126,3 +1126,88 @@ button {
 	background: var(--accent);
 	transition: width 0.15s linear;
 }
+
+/* ── Continuous page stack ─────────────────────────────── */
+.pdf-pages {
+	width: fit-content;
+	max-width: 100%;
+	margin: 0 auto;
+}
+.pdf-page-shell {
+	position: relative;
+	margin-left: auto;
+	margin-right: auto;
+}
+.pdf-page-placeholder {
+	position: absolute;
+	inset: 0;
+	border-radius: 10px;
+	background: var(--surface);
+	opacity: 0.6;
+}
+
+/* ── Reader floating actions (above the audio pill) ────── */
+.reader-float-stack {
+	position: fixed;
+	/* Right edge lines up with the floating audio pill, which is centred and
+	   capped at 720px. */
+	right: max(12px, calc((100vw - min(720px, calc(100vw - 24px))) / 2));
+	bottom: 96px;
+	z-index: 75;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 10px;
+	pointer-events: none;
+}
+
+.follow-audio-btn,
+.scroll-top-btn {
+	pointer-events: auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--border);
+	border-radius: var(--r-pill);
+	background: var(--surface);
+	color: var(--text-1);
+	box-shadow: var(--shadow-lg);
+	transition:
+		background 0.15s,
+		border-color 0.15s,
+		color 0.15s,
+		transform 0.15s,
+		opacity 0.15s;
+	animation: confirm-rise 0.16s ease-out;
+}
+.follow-audio-btn {
+	gap: 7px;
+	padding: 9px 14px;
+	font-family: inherit;
+	font-size: 12.5px;
+	font-weight: 600;
+	white-space: nowrap;
+}
+.scroll-top-btn {
+	width: 40px;
+	height: 40px;
+	padding: 0;
+}
+.follow-audio-btn:hover,
+.scroll-top-btn:hover {
+	background: var(--soft);
+	border-color: var(--accent);
+	color: var(--ink);
+	transform: translateY(-1px);
+}
+.follow-audio-btn:active,
+.scroll-top-btn:active {
+	transform: translateY(0);
+}
+
+@media (max-width: 640px) {
+	.reader-float-stack {
+		right: 12px;
+		bottom: 86px;
+	}
+}
