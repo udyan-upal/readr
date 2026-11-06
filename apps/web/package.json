@@ -17,7 +17,7 @@
 	},
 	"dependencies": {
 		"@opennextjs/cloudflare": "^1.20.15",
-		"jose": "6.2.10",
+		"jose": "6.2.15",
 		"msedge-tts": "2.1.1",
 		"next": "15.5.15",
 		"pdfjs-dist": "4.8.69",
