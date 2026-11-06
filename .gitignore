@@ -32,3 +32,6 @@ logs/
 .open-next/
 .dev.vars
 .wrangler/
+
+# Personal Claude Code permissions
+.claude/settings.local.json

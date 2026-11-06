@@ -1,6 +1,24 @@
-# PDF Read Aloud
+# Readr
 
-Next.js 15 web app. Upload a PDF, extract its text, and hear it read aloud with **word-by-word synchronized highlighting** using Microsoft Edge's neural TTS voices.
+A distraction-free reader with natural read-aloud. Open any article or PDF, and hear it read
+with **word-by-word highlighting** in Microsoft Edge's neural voices.
+
+Two apps in one repo:
+
+- **Chrome extension:** turns any web page into a clean reader view with read-aloud, highlights
+  and notes, a tl;dr summary, and "Ask" chat about the article.
+- **Web app:** upload PDFs and listen to them with synced highlighting, a sections sidebar, and
+  notes. Runs on Cloudflare Workers (D1 + R2).
+
+> **Personal project, self-hosted.** Readr is built for personal use: you run your own copy with
+> your own keys. There is no hosted public instance.
+
+> [!WARNING]
+> **Read-aloud uses an unofficial endpoint.** Text-to-speech goes through the endpoint behind
+> Microsoft Edge's built-in Read Aloud feature (via [`msedge-tts`](https://www.npmjs.com/package/msedge-tts)).
+> It is not a documented or supported Microsoft API. It needs no key, but it can change or stop
+> working at any time, and using it may be subject to Microsoft's terms. Use it for personal
+> projects at your own risk.
 
 ## Screenshots
 
@@ -14,81 +32,116 @@ Next.js 15 web app. Upload a PDF, extract its text, and hear it read aloud with 
 
 ## Stack
 
-- Next.js 15 (App Router, TypeScript, strict mode)
-- Tailwind CSS
-- `pdfjs-dist` — PDF rendering + text extraction on the client
-- `msedge-tts` — server-side wrapper for Edge's TTS service (Node runtime)
+- **Web:** Next.js 15 (App Router, TypeScript), Tailwind CSS, `pdfjs-dist`, deployed to Cloudflare
+  Workers with [OpenNext](https://opennext.js.org/cloudflare); D1 for notes and sessions, R2 for PDFs
+- **Extension:** Chrome Manifest V3, plain JavaScript bundled with Bun, Mozilla Readability
+- **TTS:** Microsoft Edge neural voices with word boundaries (see the warning above)
+- **AI (extension only):** OpenRouter, with NVIDIA as an optional fallback
+- **Repo:** pnpm workspace, Biome, commitlint + Husky
 
 ## Requirements
 
-- Node.js and npm for the web app
-- Bun for the Chrome extension
-- A Clerk application
-- A Supabase project with the required tables and `pdfs` storage bucket
+- Node.js 24 (see `.nvmrc`) and [pnpm](https://pnpm.io) 11
+- [Bun](https://bun.sh) to build the extension
+- Chrome (or another Chromium browser) to load the extension
+- For deploying the web app: a free [Cloudflare](https://dash.cloudflare.com/sign-up) account
+- For extension summaries/chat (optional): an [OpenRouter](https://openrouter.ai) API key
 
-## Run the Web App
+## Run it locally
 
-```bash
-npm install
-cp .env.example .env.local
-npm run dev
-```
-
-Set the Clerk and Supabase credentials in `.env.local`, then open
-[http://localhost:3030](http://localhost:3030).
-
-```dotenv
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
-CLERK_SECRET_KEY=sk_test_...
-```
-
-Microsoft Edge TTS uses a public endpoint, so it does not require an API key.
-
-## Run the Chrome Extension
-
-Keep the web app running because the extension sends read-aloud requests to its `/api/tts`
-endpoint. In a second terminal:
+### 1. Install
 
 ```bash
+git clone https://github.com/udyan-upal/readr.git
+cd readr
+pnpm install
+```
+
+### 2. Web app
+
+```bash
+cp apps/web/.env.example apps/web/.env.local
+pnpm --filter @readr/web dev
+```
+
+Open [http://localhost:3030](http://localhost:3030). Fill in `apps/web/.env.local`:
+
+| Variable | What it is |
+|---|---|
+| `ADMIN_USERNAME`, `ADMIN_PASSWORD` | The single login for your instance |
+| `AUTH_SECRET` | Signs session tokens. Generate with `openssl rand -base64 48` |
+| `EXT_API_TOKEN` | Shared token the extension sends to `/api/tts`. Generate with `openssl rand -hex 32` |
+
+### 3. Chrome extension
+
+```bash
+cp apps/extension/.env.example apps/extension/.env.local
 cd apps/extension
-bun install
-cp .env.example .env.local
-bun run dev
+bun run dev        # watches and rebuilds dist/; use `bun run build` for a one-off build
 ```
 
-Configure `apps/extension/.env.local`:
+Fill in `apps/extension/.env.local`:
 
-```dotenv
-OPENROUTER_API_KEY=your-openrouter-api-key
-OPENROUTER_MODEL=openai/gpt-4o-mini
-NVIDIA_API_KEY=your-nvidia-api-key
-EDGE_TTS_API_URL=http://localhost:3030/api/tts
+| Variable | What it is |
+|---|---|
+| `EDGE_TTS_API_URL` | Your web app's TTS endpoint, e.g. `http://localhost:3030/api/tts` |
+| `EDGE_TTS_API_TOKEN` | Same value as the web app's `EXT_API_TOKEN` |
+| `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` | Optional. Enables tl;dr and Ask (e.g. `openai/gpt-4o-mini`) |
+| `NVIDIA_API_KEY` | Optional fallback AI provider |
+
+These values are **built into the extension's JavaScript**, so rebuild after changing them, and
+don't share your built extension (see [SECURITY.md](SECURITY.md)).
+
+Load it in Chrome:
+
+1. Open `chrome://extensions` and turn on **Developer mode**.
+2. Click **Load unpacked** and select `apps/extension/dist/`.
+3. After a rebuild, click the reload icon on the extension's card.
+
+## Deploy your own (Cloudflare Workers)
+
+The web app deploys to Cloudflare's free plan. Run these from `apps/web`:
+
+```bash
+npx wrangler login
+
+# Create your own database and bucket, then put their names/IDs in wrangler.jsonc
+npx wrangler d1 create readr-db                # copy the database_id it prints
+npx wrangler r2 bucket create <your-bucket-name>
+npx wrangler d1 migrations apply readr-db --remote
+
+# Secrets (same meaning as in .env.local)
+npx wrangler secret put ADMIN_USERNAME
+npx wrangler secret put ADMIN_PASSWORD
+npx wrangler secret put AUTH_SECRET
+npx wrangler secret put EXT_API_TOKEN
+
+pnpm run cf:deploy
 ```
 
-OpenRouter is the primary summaries/chat provider. NVIDIA is optional and acts as a fallback.
-The reader and read-aloud features still build without an AI provider, but summaries and chat
-will fail at runtime.
+`wrangler.jsonc` in this repo points at the maintainer's D1 database and R2 bucket. Replace
+`database_id` and `bucket_name` with your own before deploying.
 
-Load the extension in Chrome:
+Then set `EDGE_TTS_API_URL` in the extension to `https://<your-worker>.workers.dev/api/tts` and
+rebuild it.
 
-1. Open `chrome://extensions`.
-2. Enable **Developer mode**.
-3. Click **Load unpacked**.
-4. Select `apps/extension/dist/`.
-5. Reload the extension from this page after a rebuild.
+**Free plan note:** Workers on the free plan get 10ms of CPU per request, and TTS requests often
+go over it, so Cloudflare rejects some of them with a 503. Readr handles this: it requests short
+clips, buffers four ahead while you listen, and retries failed ones in the background, so
+playback normally doesn't stall. Cloudflare's paid Workers plan removes the limit.
 
-`bun run dev` watches source files and rebuilds `dist/`. Use `bun run build` for a one-time
-build. Environment values are embedded at build time, so rebuild after editing
-`apps/extension/.env.local`.
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, commit
+conventions, and the PR process, and follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+Report security issues privately as described in [SECURITY.md](SECURITY.md).
 
 ## Features
 
 - Drag-and-drop PDF upload (max 20MB)
 - Two-panel layout: PDF canvas preview (left) + extracted text with live highlighting (right)
 - Voice picker grouped by locale (20+ neural voices, English prioritized; Bengali, Hindi, French, German, Spanish, Japanese, Chinese, Korean included)
-- Speed control: 0.5x / 0.75x / 1x / 1.25x / 1.5x / 2x — passed to the TTS service so word boundary timings stay accurate
+- Speed control: 0.5x / 0.75x / 1x / 1.25x / 1.5x / 2x — changes playback speed without regenerating audio
 - Play / Pause / Stop + progress bar
 - Word-by-word highlight follows audio playback; active word auto-scrolls into view
 - Keyboard shortcuts: **Space** = play/pause · **←/→** = prev/next page
@@ -157,12 +210,12 @@ sequenceDiagram
 	participant A as alignBoundaries
 
 	V->>P: Play with the page's extracted words
-	P->>B: Split words into clips<br/>100 → 500 → 1000 → 1500 chars
+	P->>B: Split words into clips<br/>100 → 250 → 400 chars
 	B->>API: Send clip, voice, rate
 	API->>E: SSML with rate + wordBoundaryEnabled
 	E-->>API: Audio + word boundaries (HNS ticks)
 	API-->>B: base64 audio + boundaries in ms
-	B-->>P: Current clip, two buffered ahead
+	B-->>P: Current clip, four buffered ahead<br/>(failed requests retried in background)
 	P->>A: Boundaries + rendered Word[]
 	A-->>P: Aligned words
 	P-->>V: currentWordIndex on timeupdate
@@ -205,8 +258,12 @@ flowchart TD
 - **HNS → ms:** `offsetMs = Offset / 10_000`
 - **PDF.js worker:** `GlobalWorkerOptions.workerSrc` points at cdnjs with `pdfjs.version`
 - **Boundary alignment:** TTS tokens don't match whitespace-split words 1:1; `alignBoundaries` walks both arrays, normalizing (lowercase, strip punctuation), interpolating when one boundary covers multiple rendered words
-- **Speed:** `rate` is sent to the TTS API (e.g. `"+50%"` for 1.5x) so Microsoft generates audio + boundaries at the chosen speed — more accurate than client-side `playbackRate`
+- **Speed:** audio is always synthesized at normal speed (`rate: "+0%"`) and sped up with the audio element's `playbackRate`, so changing speed doesn't refetch audio and word timings stay on the media timeline
 
 ## Limits
 
 - No OCR — scanned/image PDFs require OCR before their text can be read.
+
+## License
+
+[MIT](LICENSE) © Udyan Saha Upal

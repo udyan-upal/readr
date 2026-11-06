@@ -1,6 +1,7 @@
 {
 	"name": "readr",
 	"private": true,
+	"license": "MIT",
 	"engines": {
 		"npm": ">=10.9.2",
 		"node": ">=24"

@@ -1,0 +1,43 @@
+name: Bug report
+description: Something isn't working
+labels: [bug]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where
+      options: [Web app, Chrome extension, Both, Not sure]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you expected vs. what you saw. Include exact error text.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See error
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Page or PDF (if relevant)
+      description: A public URL where it happens. Don't share private documents.
+  - type: input
+    id: env
+    attributes:
+      label: Browser and OS
+      placeholder: Chrome 143, macOS 15
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output or screenshots
+      render: text

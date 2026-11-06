@@ -8,6 +8,9 @@
 		"directory": ".open-next/assets",
 		"binding": "ASSETS"
 	},
+	// Forks: these point at the maintainer's resources. Create your own with
+	// `wrangler d1 create readr-db` and `wrangler r2 bucket create <name>`, then replace
+	// database_id and bucket_name below (see README "Deploy your own").
 	"d1_databases": [
 		{
 			"binding": "DB",
